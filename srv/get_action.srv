@@ -1,0 +1,9 @@
+float64[] CoM
+float64 distance_x
+float64 distance_y
+float64 distance_z
+---
+float64 Tf
+float64[] haa_coefficient
+float64[] hfe_coefficient
+float64[] kfe_coefficient
