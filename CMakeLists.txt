@@ -58,6 +58,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   get_action.srv
+  get_target.srv
+  set_reward.srv
 )
 
 ## Generate actions in the 'action' folder
