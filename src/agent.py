@@ -14,11 +14,11 @@ class JumplegAgent:
         self.distance_x = 0
         self.distance_y = 0
         self.distance_z = 0
-        self.target_position = np.zero(3)
+        self.target_position = np.zeros(3)
         self.last_reward = 0
-        self.haa_coefficient = np.zero(6)
-        self.hfe_coefficient = np.zero(6)
-        self.kfe_coefficient = np.zero(6)
+        self.haa_coefficient = np.zeros(6)
+        self.hfe_coefficient = np.zeros(6)
+        self.kfe_coefficient = np.zeros(6)
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action, self.get_action_handler)
