@@ -1,10 +1,3 @@
-float64[] CoM
-float64 distance_x
-float64 distance_y
-float64 distance_z
-float64[] target_position
+float64[] state
 ---
-float64 thrusting_duration
-float64[] haa_coefficient
-float64[] hfe_coefficient
-float64[] kfe_coefficient
+float64[] action

@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
 
-from jumpleg_rl.srv import get_action, get_actionResponse, get_target, get_targetResponse, set_reward, set_rewardResponse
+from jumpleg_rl.srv import *
 import rospy
 import numpy as np
 import os
+import argparse
+
+# import utils
+# import TD3
 
 class JumplegAgent:
-    def __init__(self):
+    def __init__(self, _mode):
 
         # Class attribute
         self.node_name = "JumplegAgent"
-        self.CoM = []
-        self.distance_x = 0
-        self.distance_y = 0
-        self.distance_z = 0
-        self.target_position = np.zeros(3)
-        self.last_reward = 0
-        self.haa_coefficient = np.zeros(6)
-        self.hfe_coefficient = np.zeros(6)
-        self.kfe_coefficient = np.zeros(6)
+        self.mode = _mode
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action, self.get_action_handler)
@@ -27,36 +23,36 @@ class JumplegAgent:
         
         # Start the node
         rospy.init_node(self.node_name)
-        rospy.loginfo("JumplegAgent is lissening")
+        rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
         rospy.spin()
 
-    def get_action_handler(self, req):
-        rospy.loginfo("Request: %s",req)
-        # Coping state recived from env
-        self.CoM = req.CoM
-        self.distance_x = req.distance_x
-        self.distance_y = req.distance_y
-        self.distance_z = req.distance_z
-        resp = get_actionResponse()
-        #TODO: Calculate network output
-        resp.thrusting_duration = 1.0
-        resp.haa_coefficient = self.haa_coefficient
-        resp.hfe_coefficient = self.hfe_coefficient
-        resp.kfe_coefficient = self.kfe_coefficient
-        return resp
-    
     def get_target_handler(self, req):
         resp = get_targetResponse()
-        #TODO: Implement target control and generation based on reward or epoch
-        resp.target_position =  self.target_position 
-        rospy.loginfo("Target position: %s", self.target_position )
+        resp.target_CoM = np.random.rand(3)
+        return resp
+
+    def get_action_handler(self, req):
+        state = req.state
+
+        resp = get_actionResponse()
+        thrusting_duration = np.array([1.0])
+        haa_coefficient = np.random.rand(6)
+        hfe_coefficient = np.random.rand(6)
+        kfe_coefficient = np.random.rand(6)
+
+        action = np.concatenate((thrusting_duration, haa_coefficient, hfe_coefficient, kfe_coefficient))
+
+        resp.action = action
         return resp
     
     def set_reward_handler(self, req):
         resp = set_rewardResponse()
-        self.last_reward = req.reward
-        resp.ack = self.last_reward
-        return resp
+        next_state = req.next_state
+        reward = req.reward
 
 if __name__ == "__main__":
-    jumplegAgent = JumplegAgent()
+    parser = argparse.ArgumentParser(description='JumplegAgent arguments')
+    parser.add_argument('--mode', type=str,default="inference",nargs="?",help='Agent mode')
+    args = parser.parse_args()
+
+    jumplegAgent = JumplegAgent(args.mode)
