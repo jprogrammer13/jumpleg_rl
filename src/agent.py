@@ -6,7 +6,7 @@ import numpy as np
 import os
 import argparse
 
-# import utils
+from utils import ReplayBuffer
 # import TD3
 
 class JumplegAgent:
@@ -46,9 +46,11 @@ class JumplegAgent:
         return resp
     
     def set_reward_handler(self, req):
+        self.next_state = req.next_state
+        self.reward = req.reward
         resp = set_rewardResponse()
-        next_state = req.next_state
-        reward = req.reward
+        resp.ack = self.reward;
+        return resp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='JumplegAgent arguments')
