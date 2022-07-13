@@ -53,6 +53,6 @@ class JumplegAgent:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='JumplegAgent arguments')
     parser.add_argument('--mode', type=str,default="inference",nargs="?",help='Agent mode')
-    args = parser.parse_args()
+    args = parser.parse_args(rospy.myargv()[1:])
 
     jumplegAgent = JumplegAgent(args.mode)
