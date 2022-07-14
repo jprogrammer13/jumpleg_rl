@@ -1,40 +1,54 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import torch
 
 
 class ReplayBuffer(object):
-	def __init__(self, state_dim, action_dim, max_size=int(1e6)):
-		self.max_size = max_size
-		self.ptr = 0
-		self.size = 0
+    def __init__(self, state_dim, action_dim, saved_buffer=None):
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-		self.state = np.zeros((max_size, state_dim))
-		self.action = np.zeros((max_size, action_dim))
-		self.next_state = np.zeros((max_size, state_dim))
-		self.reward = np.zeros((max_size, 1))
-		self.not_done = np.zeros((max_size, 1))
+        if saved_buffer is not None:
+            self.data = pd.read_csv(open(saved_buffer))
+        else:
+            self.data = pd.DataFrame(columns=['state', 'action', 'next_state', 'reward'])
 
-		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def store(self, state, action, next_state, reward):
+        assert len(state) == self.state_dim,\
+            f"state dimension is wrong: expected size {self.state_dim}, get size {len(state)} instead"
+        assert len(action) == self.action_dim,\
+            f"action dimension is wrong: expected size {self.action_dim}, get size {len(action)} instead"
+        assert len(next_state) == self.state_dim,\
+            f"next_state dimension is wrong: expected size {self.state_dim}, get size {len(next_state)} instead"
 
+        self.data.loc[len(self.data.index)] = [
+            np.array(state).astype(float),
+            np.array(action).astype(float),
+            np.array(next_state).astype(float),
+            float(reward)]
 
-	def add(self, state, action, next_state, reward, done):
-		self.state[self.ptr] = state
-		self.action[self.ptr] = action
-		self.next_state[self.ptr] = next_state
-		self.reward[self.ptr] = reward
-		self.not_done[self.ptr] = 1. - done
+    def sample(self, batch_size):
+        sampled_indx = np.random.randint(0, self.data.shape[0], size=batch_size)
+        sampled_data = self.data.filter(items=sampled_indx, axis=0)
 
-		self.ptr = (self.ptr + 1) % self.max_size
-		self.size = min(self.size + 1, self.max_size)
+        return sampled_data['state'].to_numpy(), sampled_data['action'].to_numpy(), sampled_data[
+            'next_state'].to_numpy(), sampled_data['reward'].to_numpy()
 
+    def plot_reward(self):
+        plt.title("Reward over episode")
+        plt.xlabel("Episode#")
+        plt.ylabel("Reward")
+        plt.plot(self.data['reward'], color="orange", linewidth=2.5)
 
-	def sample(self, batch_size):
-		ind = np.random.randint(0, self.size, size=batch_size)
+    def dump(self):
+        return self.data
 
-		return (
-			torch.FloatTensor(self.state[ind]).to(self.device),
-			torch.FloatTensor(self.action[ind]).to(self.device),
-			torch.FloatTensor(self.next_state[ind]).to(self.device),
-			torch.FloatTensor(self.reward[ind]).to(self.device),
-			torch.FloatTensor(self.not_done[ind]).to(self.device)
-		)
+    def dump_to_csv(self, filename="ReplayBuffer.csv"):
+        print(f"#Dumping ReplayBuffer to {filename}#")
+        self.data.to_csv(filename, index=False)
+
+    def __str__(self):
+        return f"ReplayBufer: {self.data.shape[0]} rows\n---------------------\n" \
+               f"{self.data.head().to_string()}\n{self.data.tail().to_string()}"
