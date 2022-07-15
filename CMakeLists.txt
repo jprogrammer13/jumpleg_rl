@@ -163,7 +163,9 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/agent.py
-  src/utils.py
+  src/ReplayBuffer.py
+  src/Actor.py
+  src/Critic.py
   src/TD3.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

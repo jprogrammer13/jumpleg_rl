@@ -8,7 +8,6 @@ class ReplayBuffer(object):
     def __init__(self, state_dim, action_dim, saved_buffer=None):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if saved_buffer is not None:
             self.data = pd.read_csv(open(saved_buffer))
