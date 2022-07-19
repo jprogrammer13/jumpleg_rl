@@ -1,6 +1,6 @@
 import ReplayBuffer
-import Actor
-import Critic
+from Actor import Actor
+from Critic import Critic
 
 import torch
 import torch.nn.functional as F

@@ -1,8 +1,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import torch
-
 
 class ReplayBuffer(object):
     def __init__(self, state_dim, action_dim, saved_buffer=None):

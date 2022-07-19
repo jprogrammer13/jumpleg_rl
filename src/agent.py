@@ -6,8 +6,8 @@ import numpy as np
 import os
 import argparse
 
-# from utils import ReplayBuffer
-# import TD3
+from ReplayBuffer import ReplayBuffer
+from TD3 import TD3
 
 class JumplegAgent:
     def __init__(self, _mode):
@@ -20,6 +20,13 @@ class JumplegAgent:
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action, self.get_action_handler)
         self.get_target_srv = rospy.Service(os.path.join(self.node_name, "get_target"), get_target, self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward, self.set_reward_handler)
+
+        # RL
+        self.state_dim = 6
+        self.action_dim = 19
+        self.max_action = 500
+        self.replayBuffer = ReplayBuffer(self.state_dim,self.action_dim)
+        self.policy = TD3(self.state_dim,self.action_dim,self.max_action)
         
         # Start the node
         rospy.init_node(self.node_name)
@@ -40,6 +47,8 @@ class JumplegAgent:
         hfe_coefficient = np.random.rand(6)
         kfe_coefficient = np.random.rand(6)
 
+        action = self.policy.get_action(state)
+        print(action)
         action = np.concatenate((thrusting_duration, haa_coefficient, hfe_coefficient, kfe_coefficient))
 
         resp.action = action
