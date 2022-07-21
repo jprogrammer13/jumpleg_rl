@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import rospy
+
 
 class ReplayBuffer(object):
     def __init__(self, state_dim, action_dim, saved_buffer=None):
@@ -30,14 +32,17 @@ class ReplayBuffer(object):
         sampled_indx = np.random.randint(0, self.data.shape[0], size=batch_size)
         sampled_data = self.data.filter(items=sampled_indx, axis=0)
 
-        return sampled_data['state'].to_numpy(), sampled_data['action'].to_numpy(), sampled_data[
-            'next_state'].to_numpy(), sampled_data['reward'].to_numpy()
+        return np.array(sampled_data['state'].to_list()),\
+               np.array(sampled_data['action'].to_list()),\
+               np.array(sampled_data['next_state'].to_list()),\
+               np.array(sampled_data['reward'].to_list())
 
     def plot_reward(self):
         plt.title("Reward over episode")
         plt.xlabel("Episode#")
         plt.ylabel("Reward")
         plt.plot(self.data['reward'], color="orange", linewidth=2.5)
+        plt.show()
 
     def dump(self):
         return self.data
