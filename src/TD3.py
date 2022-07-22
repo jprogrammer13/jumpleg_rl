@@ -65,38 +65,35 @@ class TD3(object):
             done = torch.FloatTensor(1 - 1).to(self.device)
 
             noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
-            # noise = noise.clamp(-0.5,0.5)
-            # next_action = (self.actor_target(next_state)+noise)
-            next_action = (self.actor_target(next_state))
-            rospy.loginfo(next_state.shape)
-            rospy.loginfo(next_action.shape)
-            return -1
-            #
-            # target_Q1, target_Q2 = self.critic_target(next_state, next_action)
-            # target_Q = torch.min(target_Q1, target_Q2)
-            # target_Q = reward + (self.discount * done * target_Q).detach()
-            # # ---------------------------------------------------------------
-            #
-            # current_Q1, current_Q2 = self.critic(state,action)
-            #
-            # critic_loss = F.mse_loss(current_Q1,target_Q)+F.mse_loss(current_Q2,target_Q)
-            #
-            # self.critic_optimizer.zero_grad()
-            # critic_loss.backward()
-            # self.critic_optimizer.step()
-            #
-            # if i % self.policy_freq == 0:
-            #     actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
-            #
-            #     self.actor_optimizer.zero_grad()
-            #     actor_loss.backward()
-            #     self.actor_optimizer.step()
-            #
-            #     for param, target_param in zip(self.critic.parameters(),self.critic_target.parameters()):
-            #         target_param.data.copy_(self.tau*param.data+(1-self.tau)*target_param.data)
-            #
-            #     for param, target_param in zip(self.actor.parameters(),self.actor.parameters()):
-            #         target_param.data.copy_(self.tau*param.data+(1-self.tau)*target_param.data)
+            noise = noise.clamp(-0.5,0.5)
+            next_action = (self.actor_target(next_state)+noise)
+            # next_action = (self.actor_target(next_state))
+
+            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q = torch.min(target_Q1, target_Q2)
+            target_Q = reward + (self.discount * done * target_Q).detach()
+            # ---------------------------------------------------------------
+
+            current_Q1, current_Q2 = self.critic(state,action)
+
+            critic_loss = F.mse_loss(current_Q1,target_Q)+F.mse_loss(current_Q2,target_Q)
+
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
+
+            if i % self.policy_freq == 0:
+                actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor_optimizer.step()
+
+                for param, target_param in zip(self.critic.parameters(),self.critic_target.parameters()):
+                    target_param.data.copy_(self.tau*param.data+(1-self.tau)*target_param.data)
+
+                for param, target_param in zip(self.actor.parameters(),self.actor.parameters()):
+                    target_param.data.copy_(self.tau*param.data+(1-self.tau)*target_param.data)
 
     def save(self, filename, directory):
         torch.save(self.actor.state_dict(), '%s/%s_actor.pth' % (directory, filename))
