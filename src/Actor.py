@@ -25,9 +25,12 @@ class Actor(nn.Module):
 
     def forward(self, state):
         action = self.actor_model(state)
-        # return self.max_action_value * action
-        T_th = torch.abs(self.max_time_value * action[:,0]).reshape(-1,1)
-        coef = torch.flatten(self.max_action_value * action[:,1:])
-        action = torch.cat((T_th,coef),axis=1)
+        action_dim = len(action.shape)
+        if action_dim > 1:
+            T_th = torch.abs(self.max_time_value * action[:,0]).reshape(-1,1)
+            coef = torch.flatten(self.max_action_value * action[:,1:])
+        else:
+            T_th = torch.flatten(torch.abs(self.max_time_value * action[0]))
+            coef = torch.flatten(self.max_action_value * action[1:])
+            action = torch.cat((T_th[None,:],coef[None,:]),axis=1)
         return action
-        
