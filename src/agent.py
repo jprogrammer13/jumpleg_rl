@@ -24,8 +24,8 @@ class JumplegAgent:
         # RL
         self.state_dim = 6
         self.action_dim = 19
-        self.max_time = 10
-        self.max_action = 500
+        self.max_time = 5
+        self.max_action = 300
         self.replayBuffer = ReplayBuffer(self.state_dim,self.action_dim)
         self.policy = TD3(self.state_dim,self.action_dim,self.max_time,self.max_action)
 
@@ -93,9 +93,12 @@ class JumplegAgent:
 
         # Train
 
-        if self.episode_counter > 1:#self.batch_size:
+        if self.episode_counter > self.batch_size:
             rospy.loginfo("TRAINING")
             self.policy.train(self.replayBuffer,1,32)
+
+        if self.episode_counter+1 %100 == 0:
+            self.policy.save('TD3.pt','../model')
 
         resp = set_rewardResponse()
         resp.ack = reward
