@@ -14,7 +14,8 @@ class TD3(object):
                  state_dim,
                  action_dim,
                  max_time,
-                 max_action,
+                 max_extension,
+                 max_acceleration,
                  discount=0.99,
                  tau=0.005,
                  policy_noise=0.2,
@@ -23,8 +24,9 @@ class TD3(object):
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.max_action = max_action
         self.max_time = max_time
+        self.max_extension = max_extension
+        self.max_acceleration = max_acceleration
         self.discount = discount
         self.tau = tau
         self.policy_noise = policy_noise
@@ -35,8 +37,8 @@ class TD3(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Actor network
-        self.actor = Actor(self.state_dim,self.action_dim,self.max_time,self.max_action).to(self.device)
-        self.actor_target =  Actor(self.state_dim,self.action_dim,max_time,self.max_action).to(self.device)
+        self.actor = Actor(self.state_dim,self.action_dim-1,self.max_time,self.max_extension,self.max_acceleration).to(self.device)
+        self.actor_target = Actor(self.state_dim,self.action_dim-1,self.max_time,self.max_extension,self.max_acceleration).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
 
@@ -65,8 +67,8 @@ class TD3(object):
         # ---------------------------------------------------------------
         done = torch.FloatTensor(1 - 1).to(self.device)
 
-        noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
-        noise = noise.clamp(100,100)
+        # noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
+        # noise = noise.clamp(100,100)
         #TODO: Fix noise clamp
         # next_action = (self.actor_target(next_state)+noise)
         next_action = (self.actor_target(next_state))

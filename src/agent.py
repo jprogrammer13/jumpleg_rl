@@ -23,11 +23,12 @@ class JumplegAgent:
 
         # RL
         self.state_dim = 6
-        self.action_dim = 19
+        self.action_dim = 7
         self.max_time = 10
-        self.max_action = 200
+        self.max_extension = 0.7
+        self.max_acceleration = 5
         self.replayBuffer = ReplayBuffer(self.state_dim,self.action_dim)
-        self.policy = TD3(self.state_dim,self.action_dim,self.max_time,self.max_action)
+        self.policy = TD3(self.state_dim,self.action_dim,self.max_time,self.max_extension,self.max_acceleration)
 
         self.max_episode = 1000
         self.episode_counter = 0
@@ -75,10 +76,13 @@ class JumplegAgent:
         if self.episode_counter > self.batch_size:
             action = self.policy.get_action(state)
         else:
-            tmp_action = action = np.random.rand(self.action_dim)
+            tmp_action = action = np.random.rand(self.action_dim-1)
             T_th = [np.abs(self.max_time * tmp_action[0])]
-            coef = self.max_action * tmp_action[1:]
-            action = np.concatenate((T_th, coef))
+            k = tmp_action[1]
+            ComF_xy = state[3:5] * [k, k]
+            ComF_z = [self.max_extension * tmp_action[2]]
+            ComFd = self.max_acceleration * tmp_action[3:]
+            action = np.concatenate((T_th,ComF_xy,ComF_z,ComFd))
 
         self.episode_transition['action'] = action
 
