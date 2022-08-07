@@ -67,8 +67,9 @@ class TD3(object):
 
         noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
         noise = noise.clamp(100,100)
-        next_action = (self.actor_target(next_state)+noise)
-        # next_action = (self.actor_target(next_state))
+        #TODO: Fix noise clamp
+        # next_action = (self.actor_target(next_state)+noise)
+        next_action = (self.actor_target(next_state))
 
         # We have only one step env -> we compare the current critic with only the real reward
         # target_Q1, target_Q2 = self.critic_target(next_state, next_action)
@@ -85,6 +86,7 @@ class TD3(object):
         self.critic_optimizer.step()
 
         if self.total_it % self.policy_freq == 0:
+            rospy.loginfo("updating the net")
             actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
 
             self.actor_optimizer.zero_grad()
