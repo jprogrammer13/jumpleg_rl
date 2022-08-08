@@ -12,6 +12,8 @@ from TD3 import TD3
 class JumplegAgent:
     def __init__(self, _mode):
 
+        np.random.seed(13)
+
         # Class attribute
         self.node_name = "JumplegAgent"
         self.mode = _mode
@@ -25,8 +27,8 @@ class JumplegAgent:
         self.state_dim = 6
         self.action_dim = 7
         self.max_time = 10
-        self.max_extension = 0.7
-        self.max_acceleration = 5
+        self.max_extension = 0.4
+        self.max_acceleration = 2
         self.replayBuffer = ReplayBuffer(self.state_dim,self.action_dim)
         self.policy = TD3(self.state_dim,self.action_dim,self.max_time,self.max_extension,self.max_acceleration)
 
