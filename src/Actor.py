@@ -9,7 +9,7 @@ class Actor(nn.Module):
                  max_time,
                  max_extension,
                  max_acceleration,
-                 layer_dim=256):
+                 layer_dim=128):
         
         super(Actor, self).__init__()
         self.action_dim = action_dim

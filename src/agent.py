@@ -12,7 +12,7 @@ from TD3 import TD3
 class JumplegAgent:
     def __init__(self, _mode):
 
-        np.random.seed(13)
+        # np.random.seed(13)
 
         # Class attribute
         self.node_name = "JumplegAgent"
@@ -26,9 +26,9 @@ class JumplegAgent:
         # RL
         self.state_dim = 6
         self.action_dim = 7
-        self.max_time = 10
+        self.max_time = 5
         self.max_extension = 0.4
-        self.max_acceleration = 2
+        self.max_acceleration = 1
         self.replayBuffer = ReplayBuffer(self.state_dim,self.action_dim)
         self.policy = TD3(self.state_dim,self.action_dim,self.max_time,self.max_extension,self.max_acceleration)
 
@@ -37,7 +37,7 @@ class JumplegAgent:
         self.episode_transition = {"state":None, "action": None, "nxt_state": None, "reward": None}
         self.CoM0 = [0,0,0.25]
         self.targetCoM = self.generate_target(self.CoM0)
-        self.batch_size = 32
+        self.batch_size = 64
 
 
         if self.mode == 'inferencce':
@@ -58,7 +58,7 @@ class JumplegAgent:
         y = r * np.sin(rho)
 
         # TODO: Remove the test
-        x = 1.5
+        x = 0.5
         y = 0
         z = 0.25
         return [x, y, z]
@@ -82,7 +82,7 @@ class JumplegAgent:
             T_th = [np.abs(self.max_time * tmp_action[0])]
             k = tmp_action[1]
             ComF_xy = state[3:5] * [k, k]
-            ComF_z = [self.max_extension * tmp_action[2]]
+            ComF_z = [self.max_extension/2 + (self.max_extension/2 * tmp_action[2])]
             ComFd = self.max_acceleration * tmp_action[3:]
             action = np.concatenate((T_th,ComF_xy,ComF_z,ComFd))
 

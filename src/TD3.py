@@ -67,11 +67,11 @@ class TD3(object):
         # ---------------------------------------------------------------
         done = torch.FloatTensor(1 - 1).to(self.device)
 
-        # noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
+        noise = torch.FloatTensor(action).data.normal_(0,self.policy_noise).to(self.device)
         # noise = noise.clamp(100,100)
         #TODO: Fix noise clamp
-        # next_action = (self.actor_target(next_state)+noise)
-        next_action = (self.actor_target(next_state))
+        next_action = (self.actor_target(next_state)+noise)
+        # next_action = (self.actor_target(next_state))
 
         # We have only one step env -> we compare the current critic with only the real reward
         # target_Q1, target_Q2 = self.critic_target(next_state, next_action)
