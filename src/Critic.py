@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, layer_dim=128):
+    def __init__(self, state_dim, action_dim, layer_dim=256):
         super(Critic, self).__init__()
 
         self.critic_model_Q1 = nn.Sequential(

@@ -167,6 +167,7 @@ catkin_install_python(PROGRAMS
   src/Actor.py
   src/Critic.py
   src/TD3.py
+  src/utils.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
