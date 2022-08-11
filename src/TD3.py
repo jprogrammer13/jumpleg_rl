@@ -34,8 +34,8 @@ class TD3(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Actor network
-        self.actor = Actor(self.state_dim,self.action_dim-1,self.max_time,self.max_velocity).to(self.device)
-        self.actor_target =  Actor(self.state_dim,self.action_dim-1,max_time,self.max_velocity).to(self.device)
+        self.actor = Actor(self.state_dim,self.action_dim-2,self.max_time,self.max_velocity).to(self.device)
+        self.actor_target =  Actor(self.state_dim,self.action_dim-2,max_time,self.max_velocity).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
 

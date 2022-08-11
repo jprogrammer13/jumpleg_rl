@@ -60,9 +60,9 @@ class JumplegAgent:
         y = r * np.sin(rho)
 
         # # TODO: Remove the test
-        # x = 0.5
-        # y = 0
-        # z = 0.25
+        x = -0.51303
+        y = 0.0229
+        z = 0.25
         return [x, y, z]
 
     def get_target_handler(self, req):
@@ -81,13 +81,22 @@ class JumplegAgent:
             action = self.policy.get_action(state)
         else:
             az, _, _ = cart2sph(state[3], state[4], state[5])
-            tmp_action = np.random.uniform(-1,1,self.action_dim-1)
-            T_th = self.max_time-0.1 * abs(tmp_action[0])+ 0.1
+
+            tmp_action = np.random.uniform(-1,1,self.action_dim-2)
+
+            T_th = (self.max_time-0.5) * abs(tmp_action[0])+ 0.5
+
             el = (abs(tmp_action[1])*(np.pi/2))
             r = (abs(tmp_action[2]) * 0.2) + 0.2
+
             ComF_x, ComF_y, ComF_z = sph2cart(az, el, r)
-            ComFd = self.max_velocity * tmp_action[3:]
-            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], ComFd ))
+
+            el_d = (abs(tmp_action[3])*(np.pi/2))
+            r_d = abs(tmp_action[4]) * self.max_velocity
+
+            ComFd_x, ComFd_y, ComFd_z = sph2cart(az, el_d, r_d)
+
+            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [ComFd_x], [ComFd_y], [ComFd_z] ))
 
         self.episode_transition['action'] = action
 
