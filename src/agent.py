@@ -30,7 +30,11 @@ class JumplegAgent:
         # RL
         self.state_dim = 6
         self.action_dim = 7
-        self.max_time = 5
+        self.max_time = 2.
+        self.min_time  = 0.1
+        self.max_extension = 0.32
+        self.min_extension = 0.06
+
         self.max_velocity = 1
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.max_velocity)
@@ -60,7 +64,7 @@ class JumplegAgent:
         y = r * np.sin(rho)
 
         # # TODO: Remove the test
-        x = -0.51303
+        x = 0.51303
         y = 0.0229
         z = 0.25
         return [x, y, z]
@@ -84,19 +88,18 @@ class JumplegAgent:
 
             tmp_action = np.random.uniform(-1,1,self.action_dim-2)
 
-            T_th = (self.max_time-0.5) * abs(tmp_action[0])+ 0.5
+            T_th = (self.max_time- self.min_time) * 0.5*(tmp_action[0]+1)  +self.min_time
 
-            el = (abs(tmp_action[1])*(np.pi/2))
-            r = (abs(tmp_action[2]) * 0.2) + 0.2
-
+            el = ( 0.5*(tmp_action[1]+1) )*(np.pi/2)
+            r = (self.max_extension - self.min_extension) * 0.5*(tmp_action[0]+1) + self.min_extension
             ComF_x, ComF_y, ComF_z = sph2cart(az, el, r)
 
-            el_d = (abs(tmp_action[3])*(np.pi/2))
-            r_d = abs(tmp_action[4]) * self.max_velocity
+            el_d =  ( 0.5*(tmp_action[3]+1) )*(np.pi/2)
+            r_d = ( 0.5*(tmp_action[4]+1) ) * self.max_velocity
 
             ComFd_x, ComFd_y, ComFd_z = sph2cart(az, el_d, r_d)
 
-            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [ComFd_x], [ComFd_y], [ComFd_z] ))
+            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [0], [0], [0] ))
 
         self.episode_transition['action'] = action
 
