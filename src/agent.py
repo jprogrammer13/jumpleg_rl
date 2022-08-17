@@ -11,7 +11,7 @@ from TD3 import TD3
 from utils import *
 import time
 import matplotlib.pyplot as plt
-
+from std_msgs.msg import Float32
 
 
 class JumplegAgent:
@@ -30,7 +30,7 @@ class JumplegAgent:
                                             self.set_reward_handler)
         # Reward publisher
 
-        self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), float, queue_size=10)
+        self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), Float32, queue_size=10)
 
         # RL
         self.state_dim = 6
