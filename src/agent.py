@@ -30,7 +30,8 @@ class JumplegAgent:
                                             self.set_reward_handler)
         # Reward publisher
 
-        self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), Float32, queue_size=10)
+        #TODO fix this
+        #self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), Float32, queue_size=10)
 
         # RL
         self.state_dim = 6
@@ -151,20 +152,21 @@ class JumplegAgent:
         resp = set_rewardResponse()
         resp.ack = reward
         print(f"Reward: {reward}")
-        self.reward_pub(reward)
+        #TODO fix this
+        #self.reward_pub(reward)
         self.episode_counter += 1
-
-        self.x = np.arange(0,self.episode_counter,1)
-        self.y.append(reward)
-        plt.cla()
-
-        plt.title("Jumpleg RL reward")
-        plt.xlabel("Epoch")
-        plt.ylabel("Reward")
-
-        plt.plot(self.x, self.y, color="orange")
-        self.figure.canvas.draw()
-        self.figure.canvas.flush_events()
+        # TODO fix this
+        # self.x = np.arange(0,self.episode_counter,1)
+        # self.y.append(reward)
+        # plt.cla()
+        #
+        # plt.title("Jumpleg RL reward")
+        # plt.xlabel("Epoch")
+        # plt.ylabel("Reward")
+        #
+        # plt.plot(self.x, self.y, color="orange")
+        # self.figure.canvas.draw()
+        # self.figure.canvas.flush_events()
         return resp
 
 
