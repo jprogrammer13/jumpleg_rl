@@ -35,12 +35,12 @@ class JumplegAgent:
         # RL
         self.state_dim = 6
         self.action_dim = 7
-        self.max_time = 2.
+        self.max_time = 1.
         self.min_time  = 0.1
-        self.max_velocity = 1
+        self.max_velocity = 0.5
         self.max_extension = 0.32
-        self.min_extension = 0.06
-        self.min_phi = 0
+        self.min_extension = 0.12
+        self.min_phi = np.pi/6.
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi)
