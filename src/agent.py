@@ -9,6 +9,9 @@ import argparse
 from ReplayBuffer import ReplayBuffer
 from TD3 import TD3
 from utils import *
+import time
+import matplotlib.pyplot as plt
+
 
 
 class JumplegAgent:
@@ -25,19 +28,22 @@ class JumplegAgent:
                                             self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
+        # Reward publisher
 
+        self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), float, queue_size=10)
 
         # RL
         self.state_dim = 6
         self.action_dim = 7
         self.max_time = 2.
         self.min_time  = 0.1
+        self.max_velocity = 1
         self.max_extension = 0.32
         self.min_extension = 0.06
+        self.min_phi = 0
 
-        self.max_velocity = 1
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
-        self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.max_velocity)
+        self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi)
 
         self.max_episode = 10000
         self.episode_counter = 0
@@ -45,6 +51,14 @@ class JumplegAgent:
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
         self.batch_size = 256
+
+        # plot
+        self.x = []
+        self.y = []
+
+        plt.ion()
+
+        self.figure = plt.figure(figsize=(15, 10))
 
         if self.mode == 'inferencce':
             # TODO: load model
@@ -84,22 +98,22 @@ class JumplegAgent:
         if self.episode_counter > (self.batch_size):
             action = self.policy.get_action(state)
         else:
-            az, _, _ = cart2sph(state[3], state[4], state[5])
+            theta, _, _ = cart2sph(state[3], state[4], state[5])
 
             tmp_action = np.random.uniform(-1,1,self.action_dim-2)
 
-            T_th = (self.max_time- self.min_time) * 0.5*(tmp_action[0]+1)  +self.min_time
+            T_th = (self.max_time- self.min_time) * 0.5*(tmp_action[0]+1) + self.min_time
 
-            el = ( 0.5*(tmp_action[1]+1) )*(np.pi/2)
+            phi = (np.pi/2 - self.min_phi) * ( 0.5*(tmp_action[1]+1) ) + self.min_phi
             r = (self.max_extension - self.min_extension) * 0.5*(tmp_action[0]+1) + self.min_extension
-            ComF_x, ComF_y, ComF_z = sph2cart(az, el, r)
+            ComF_x, ComF_y, ComF_z = sph2cart(theta, phi, r)
 
-            el_d =  ( 0.5*(tmp_action[3]+1) )*(np.pi/2)
+            phi_d =  ( 0.5*(tmp_action[3]+1) )*(np.pi/2)
             r_d = ( 0.5*(tmp_action[4]+1) ) * self.max_velocity
 
-            ComFd_x, ComFd_y, ComFd_z = sph2cart(az, el_d, r_d)
+            ComFd_x, ComFd_y, ComFd_z = sph2cart(theta, phi_d, r_d)
 
-            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [0], [0], [0] ))
+            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [ComFd_x], [ComFd_y], [ComFd_z] ))
 
         self.episode_transition['action'] = action
 
@@ -137,7 +151,20 @@ class JumplegAgent:
         resp = set_rewardResponse()
         resp.ack = reward
         print(f"Reward: {reward}")
+        self.reward_pub(reward)
         self.episode_counter += 1
+
+        self.x = np.arange(0,self.episode_counter,1)
+        self.y.append(reward)
+        plt.cla()
+
+        plt.title("Jumpleg RL reward")
+        plt.xlabel("Epoch")
+        plt.ylabel("Reward")
+
+        plt.plot(self.x, self.y, color="orange")
+        self.figure.canvas.draw()
+        self.figure.canvas.flush_events()
         return resp
 
 

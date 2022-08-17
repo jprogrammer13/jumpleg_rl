@@ -13,7 +13,11 @@ class TD3(object):
                  state_dim,
                  action_dim,
                  max_time,
+                 min_time,
                  max_velocity,
+                 max_extension,
+                 min_extension,
+                 min_phi,
                  discount=0.99,
                  tau=0.005,
                  policy_noise=0.2,
@@ -23,7 +27,11 @@ class TD3(object):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.max_time = max_time
+        self.min_time = min_time
         self.max_velocity = max_velocity
+        self.max_extension = max_extension
+        self.min_extension = min_extension
+        self.min_phi = min_phi
         self.discount = discount
         self.tau = tau
         self.policy_noise = policy_noise
@@ -34,8 +42,8 @@ class TD3(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Actor network
-        self.actor = Actor(self.state_dim,self.action_dim-2,self.max_time,self.max_velocity).to(self.device)
-        self.actor_target =  Actor(self.state_dim,self.action_dim-2,max_time,self.max_velocity).to(self.device)
+        self.actor = Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self,max_extension, self.min_extension, self.min_phi).to(self.device)
+        self.actor_target =  Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self,max_extension, self.min_extension, self.min_phi).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
 
