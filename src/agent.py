@@ -43,6 +43,7 @@ class JumplegAgent:
         self.min_extension = 0.12
         self.min_phi = np.pi/6.
 
+        self.update_every = 50
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi)
 
@@ -96,7 +97,7 @@ class JumplegAgent:
         state = np.array(req.state)
         self.episode_transition['state'] = state
 
-        if self.episode_counter > (self.batch_size):
+        if self.episode_counter > (self.batch_size*10):
             action = self.policy.get_action(state)
         else:
             theta, _, _ = cart2sph(state[3], state[4], state[5])
@@ -141,7 +142,7 @@ class JumplegAgent:
 
         # Train
 
-        if self.episode_counter > (self.batch_size):
+        if self.episode_counter > (self.batch_size*10) and self.episode_counter % self.update_every == 0:
             rospy.loginfo(f"TRAINING: {self.episode_counter}")
             if ((self.episode_counter + 1) % 100) == 0:
                 rospy.loginfo("SAVING")
