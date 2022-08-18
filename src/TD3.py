@@ -42,14 +42,14 @@ class TD3(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Actor network
-        self.actor = Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi).to(self.device)
-        self.actor_target =  Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi).to(self.device)
+        self.actor = Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi, 128).to(self.device)
+        self.actor_target =  Actor(self.state_dim,self.action_dim-2,self.max_time,self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi, 128).to(self.device)
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-3)
 
         # Critic network
-        self.critic = Critic(self.state_dim, self.action_dim).to(self.device)
-        self.critic_target = Critic(self.state_dim, self.action_dim).to(self.device)
+        self.critic = Critic(self.state_dim, self.action_dim, 128).to(self.device)
+        self.critic_target = Critic(self.state_dim, self.action_dim, 128).to(self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 

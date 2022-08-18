@@ -38,7 +38,7 @@ class JumplegAgent:
         self.action_dim = 7
         self.max_time = 1.
         self.min_time  = 0.1
-        self.max_velocity = 0.5
+        self.max_velocity = 1.5
         self.max_extension = 0.32
         self.min_extension = 0.12
         self.min_phi = np.pi/6.
@@ -51,7 +51,7 @@ class JumplegAgent:
         self.episode_transition = {"state": None, "action": None, "nxt_state": None, "reward": None}
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
-        self.batch_size = 256
+        self.batch_size = 32
 
         # plot
         self.x = []
