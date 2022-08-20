@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from email import policy
 from jumpleg_rl.srv import *
 import rospy
 import numpy as np
@@ -28,31 +29,34 @@ class JumplegAgent:
                                             self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
-        # Reward publisher
 
-        #TODO fix this
-        #self.reward_pub = rospy.Publisher(os.path.join(self.node_name, "reward"), Float32, queue_size=10)
+        # np.random.seed(613)
 
         # RL
         self.state_dim = 6
-        self.action_dim = 7
+        self.action_dim = 5
         self.max_time = 1.
-        self.min_time  = 0.1
-        self.max_velocity = 1.5
+        self.min_time = 0.1
+        self.max_velocity = 2
+        self.min_velocity = 0.1
         self.max_extension = 0.32
-        self.min_extension = 0.12
-        self.min_phi = np.pi/6.
+        self.min_extension = 0.2
+        self.min_phi = np.pi/4.
+        self.min_phi_d = np.pi/6.
+        self.layer_dim = 128
 
-        self.update_every = 50
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
-        self.policy = TD3(self.state_dim, self.action_dim, self.max_time, self.min_time, self.max_velocity, self.max_extension, self.min_extension, self.min_phi)
+        self.policy = TD3(self.state_dim, self.action_dim, self.layer_dim)
 
-        self.max_episode = 10000
+        self.max_episode = 2000
         self.episode_counter = 0
-        self.episode_transition = {"state": None, "action": None, "nxt_state": None, "reward": None}
+        self.first_episode_batch = True
+        self.episode_transition = {
+            "state": None, "action": None, "next_state": None, "reward": None}
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
-        self.batch_size = 32
+        self.batch_size = 128
+        self.exploration_noise = 0.3
 
         # plot
         self.x = []
@@ -72,108 +76,125 @@ class JumplegAgent:
         rospy.spin()
 
     def generate_target(self, CoM):
-        rho = np.random.uniform(0, 2 * np.pi)
-        # z = np.random.uniform(CoM[2],CoM[2]*3)
-        z = CoM[2]
-        r = np.random.uniform(0.5, CoM[2] * 4)
-        x = r * np.cos(rho)
-        y = r * np.sin(rho)
+        # rho = np.random.uniform(0, 2 * np.pi)
+        # z = 0.25 #np.random.uniform(0.25,0.5)
+        # r = np.random.uniform(0.5, 0.6)
+        # x = r * np.cos(rho)
+        # y = 0  # r * np.sin(rho)
 
-        # # TODO: Remove the test
-        x = 0.51303
-        y = 0.0229
-        z = 0.25
+        x = -np.random.uniform(0.4,0.5)
+        y = 0
+        z = np.random.uniform(0.25,0.4)
+        # x = 0.5
+        # y = 0
+        # z = 0.25
+
         return [x, y, z]
 
     def get_target_handler(self, req):
         resp = get_targetResponse()
         if self.episode_counter > self.max_episode:
-            episode_counter = 0
+            self.episode_counter = 0
+            self.first_episode_batch = False
             self.generate_target(self.CoM0)
         resp.target_CoM = self.targetCoM
         return resp
 
     def get_action_handler(self, req):
+
         state = np.array(req.state)
         self.episode_transition['state'] = state
 
-        if self.episode_counter > (self.batch_size*10):
-            action = self.policy.get_action(state)
+        # Generate random action only at the firt episode batch and when the episode number < batch size
+         
+        if self.episode_counter < self.batch_size and self.first_episode_batch:
+            action = np.random.uniform(-1, 1, self.action_dim)
         else:
-            theta, _, _ = cart2sph(state[3], state[4], state[5])
-
-            tmp_action = np.random.uniform(-1,1,self.action_dim-2)
-
-            T_th = (self.max_time- self.min_time) * 0.5*(tmp_action[0]+1) + self.min_time
-
-            phi = (np.pi/2 - self.min_phi) * ( 0.5*(tmp_action[1]+1) ) + self.min_phi
-            r = (self.max_extension - self.min_extension) * 0.5*(tmp_action[0]+1) + self.min_extension
-            ComF_x, ComF_y, ComF_z = sph2cart(theta, phi, r)
-
-            phi_d =  ( 0.5*(tmp_action[3]+1) )*(np.pi/2)
-            r_d = ( 0.5*(tmp_action[4]+1) ) * self.max_velocity
-
-            ComFd_x, ComFd_y, ComFd_z = sph2cart(theta, phi_d, r_d)
-
-            action = np.concatenate(([T_th], [ComF_x], [ComF_y], [ComF_z], [ComFd_x], [ComFd_y], [ComFd_z] ))
+            # We add exploration noise
+            action = (
+                self.policy.select_action(state)
+                + np.random.normal(0, 1*self.exploration_noise,
+                                   size=self.action_dim)
+            ).clip(-1, 1)
 
         self.episode_transition['action'] = action
 
+        # Performing action conversion
+        theta, _, _ = cart2sph(state[3], state[4], state[5])
+
+        T_th = (self.max_time - self.min_time) * \
+            0.5*(action[0]+1) + self.min_time
+
+        phi = (np.pi/2 - self.min_phi) * (0.5*(action[1]+1)) + self.min_phi
+
+        r = (self.max_extension - self.min_extension) * \
+            0.5*(action[2]+1) + self.min_extension
+
+        ComF_x, ComF_y, ComF_z = sph2cart(theta, phi, r)
+
+        phi_d = (np.pi/2 - self.min_phi_d)*(0.5*(action[3]+1))+self.min_phi_d
+
+        r_d =  (self.max_velocity - self.min_velocity) * (0.5*(action[4]+1)) + self.min_velocity
+
+        ComFd_x, ComFd_y, ComFd_z = sph2cart(theta, phi_d, r_d)
+
+        final_action = np.concatenate(( [T_th],
+                                        [ComF_x],
+                                        [ComF_y],
+                                        [ComF_z],
+                                        [ComFd_x],
+                                        [ComFd_y],
+                                        [ComFd_z]))
+
         resp = get_actionResponse()
-        resp.action = action
+        resp.action = final_action
         return resp
 
     def set_reward_handler(self, req):
         next_state = np.array(req.next_state)
-        self.episode_transition['nxt_state'] = next_state
+        self.episode_transition['next_state'] = next_state
 
-        reward = req.reward
+        reward = np.array(req.reward)
         self.episode_transition['reward'] = reward
 
-        rospy.loginfo(f"Episode {self.episode_counter}: {self.episode_transition['reward']}")
+        rospy.loginfo(
+            f"Episode {self.episode_counter}: {self.episode_transition['reward']}")
+
+        rospy.loginfo(f"Transition: {self.episode_transition}")
         self.replayBuffer.store(self.episode_transition['state'],
                                 self.episode_transition['action'],
-                                self.episode_transition['nxt_state'],
+                                self.episode_transition['next_state'],
                                 self.episode_transition['reward'])
 
-        # self.replayBuffer.plot_reward()
         # reset the partial transition
-        self.episode_transition = {"state": None, "action": None, "nxt_state": None, "reward": None}
+        self.episode_transition = {
+            "state": None, "action": None, "next_state": None, "reward": None}
 
         # Train
+        if self.episode_counter > (self.batch_size):
 
-        if self.episode_counter > (self.batch_size*10) and self.episode_counter % self.update_every == 0:
             rospy.loginfo(f"TRAINING: {self.episode_counter}")
+
+            # Save models and replaybuffer
             if ((self.episode_counter + 1) % 100) == 0:
                 rospy.loginfo("SAVING")
-                self.policy.save('TD3.pt', '/home/riccardo/')
-                self.replayBuffer.dump_to_csv('/home/riccardo/ReplayBuffer.csv')
+                self.policy.save('/home/riccardo/TD3')
+                self.replayBuffer.dump('/home/riccardo/ReplayBuffer.joblib')
+
             self.policy.train(self.replayBuffer, self.batch_size)
 
         resp = set_rewardResponse()
         resp.ack = reward
-        print(f"Reward: {reward}")
-        #TODO fix this
-        #self.reward_pub(reward)
+        # print(f"Reward: {reward}")
         self.episode_counter += 1
-        # TODO fix this
-        # self.x = np.arange(0,self.episode_counter,1)
-        # self.y.append(reward)
-        # plt.cla()
-        #
-        # plt.title("Jumpleg RL reward")
-        # plt.xlabel("Epoch")
-        # plt.ylabel("Reward")
-        #
-        # plt.plot(self.x, self.y, color="orange")
-        # self.figure.canvas.draw()
-        # self.figure.canvas.flush_events()
+
         return resp
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='JumplegAgent arguments')
-    parser.add_argument('--mode', type=str, default="inference", nargs="?", help='Agent mode')
+    parser.add_argument('--mode', type=str,
+                        default="inference", nargs="?", help='Agent mode')
     args = parser.parse_args(rospy.myargv()[1:])
 
     jumplegAgent = JumplegAgent(args.mode)

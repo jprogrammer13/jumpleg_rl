@@ -1,33 +1,42 @@
+from turtle import forward
 import torch
 import torch.nn as nn
 
 class Critic(nn.Module):
-    def __init__(self, state_dim, action_dim, layer_dim=256):
+    def __init__(self, state_dim, action_dim, layer_dim = 256):
         super(Critic, self).__init__()
 
-        self.critic_model_Q1 = nn.Sequential(
-            nn.Linear(state_dim+action_dim, layer_dim),
-            nn.ReLU(),
-            nn.Linear(layer_dim, layer_dim),
-            nn.ReLU(),
-            nn.Linear(layer_dim, 1)
-        )
+        # Q1 critic    
+        self.q1_fc1 = nn.Linear(state_dim+action_dim, layer_dim)
+        self.q1_fc2 = nn.Linear(layer_dim,layer_dim)
+        self.q1_fc3 = nn.Linear(layer_dim, 1)
 
-        self.critic_model_Q2 = nn.Sequential(
-            nn.Linear(state_dim+action_dim, layer_dim),
-            nn.ReLU(),
-            nn.Linear(layer_dim, layer_dim),
-            nn.ReLU(),
-            nn.Linear(layer_dim, 1)
-        )
+        # Q2 critic
+        self.q2_fc1 = nn.Linear(state_dim+action_dim, layer_dim)
+        self.q2_fc2 = nn.Linear(layer_dim,layer_dim)
+        self.q2_fc3 = nn.Linear(layer_dim, 1)
+
+        self.relu = nn.ReLU()
 
     def forward(self, state, action):
-        s_a = torch.cat([state,action],1)
-        q1 = self.critic_model_Q1(s_a)
-        q2 = self.critic_model_Q2(s_a)
-        return q1, q2
+        sa_cat = torch.cat([state, action], 1)
 
+        q1 = self.relu(self.q1_fc1(sa_cat))
+        q1 = self.relu(self.q1_fc2(q1))
+        q1 = self.q1_fc3(q1)
+
+        q2 = self.relu(self.q2_fc1(sa_cat))
+        q2 = self.relu(self.q2_fc2(q2))
+        q2 = self.q2_fc3(q2)
+
+        return q1, q2
+    
     def Q1(self, state, action):
-        s_a = torch.cat([state,action],1)
-        q1 = self.critic_model_Q1(s_a)
+
+        sa_cat = torch.cat([state, action], 1)
+
+        q1 = self.relu(self.q1_fc1(sa_cat))
+        q1 = self.relu(self.q1_fc2(q1))
+        q1 = self.q1_fc3(q1)
+
         return q1
