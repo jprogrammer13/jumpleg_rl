@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from email import policy
+
+import joblib
 from jumpleg_rl.srv import *
 import rospy
 import numpy as np
@@ -48,6 +50,8 @@ class JumplegAgent:
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.layer_dim)
 
+        oldExperiemt = os.path.exists('/home/riccardo/ReplayBuffer.joblib')
+
         self.max_episode = 2000
         self.episode_counter = 0
         self.first_episode_batch = True
@@ -56,7 +60,7 @@ class JumplegAgent:
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
         self.batch_size = 128
-        self.exploration_noise = 0.3
+        self.exploration_noise = 0.5
 
         # plot
         self.x = []
@@ -73,6 +77,13 @@ class JumplegAgent:
         # Start the node
         rospy.init_node(self.node_name)
         rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
+        # Load old saved data
+        rospy.loginfo(f"Old data exist: {oldExperiemt}")
+        if oldExperiemt:
+            rospy.loginfo("Restoring old run")
+            self.replayBuffer = joblib.load('/home/riccardo/ReplayBuffer.joblib')
+            self.policy.load('/home/riccardo/TD3')
+            self.first_episode_batch = False
         rospy.spin()
 
     def generate_target(self, CoM):
@@ -84,7 +95,7 @@ class JumplegAgent:
 
         x = -np.random.uniform(0.4,0.5)
         y = 0
-        z = np.random.uniform(0.25,0.4)
+        z = 0.25#np.random.uniform(0.25,0.4)
         # x = 0.5
         # y = 0
         # z = 0.25
