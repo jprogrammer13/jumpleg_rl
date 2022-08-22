@@ -46,6 +46,7 @@ class TD3(object):
         self.total_it = 0
 
     def select_action(self, state):
+        self.actor.eval()
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
         return self.actor(state).cpu().data.numpy().flatten()
 
@@ -53,7 +54,7 @@ class TD3(object):
         self.total_it += 1
 
         state, action, next_state, reward = replay_buffer.sample(batch_size)
-
+        self.actor.train()
         with torch.no_grad():
             noise = (torch.randn_like(action) *
                      self.policy_noise).clamp(-self.noise_clip, self.noise_clip)

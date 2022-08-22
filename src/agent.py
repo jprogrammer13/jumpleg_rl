@@ -52,7 +52,7 @@ class JumplegAgent:
 
         oldExperiemt = os.path.exists('/home/riccardo/ReplayBuffer.joblib')
 
-        self.max_episode = 2000
+        self.max_episode = 200
         self.episode_counter = 0
         self.first_episode_batch = True
         self.episode_transition = {
@@ -60,15 +60,8 @@ class JumplegAgent:
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
         self.batch_size = 128
-        self.exploration_noise = 0.5
+        self.exploration_noise = 0.3
 
-        # plot
-        self.x = []
-        self.y = []
-
-        plt.ion()
-
-        self.figure = plt.figure(figsize=(15, 10))
 
         if self.mode == 'inferencce':
             # TODO: load model
@@ -95,10 +88,7 @@ class JumplegAgent:
 
         x = -np.random.uniform(0.4,0.5)
         y = 0
-        z = 0.25#np.random.uniform(0.25,0.4)
-        # x = 0.5
-        # y = 0
-        # z = 0.25
+        z = np.random.uniform(0.25,0.4)
 
         return [x, y, z]
 
@@ -107,7 +97,7 @@ class JumplegAgent:
         if self.episode_counter > self.max_episode:
             self.episode_counter = 0
             self.first_episode_batch = False
-            self.generate_target(self.CoM0)
+            self.targetCoM = self.generate_target(self.CoM0)
         resp.target_CoM = self.targetCoM
         return resp
 
