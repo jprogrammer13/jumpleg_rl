@@ -1,5 +1,6 @@
 import imp
 import numpy as np
+import rospy
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
@@ -21,10 +22,10 @@ class TD3(object):
         tau=0.005,
         policy_noise=0.2,
         noise_clip=0.5,
-        policy_freq=2
+        policy_freq=4
     ):
         self.writer = SummaryWriter('/home/riccardo/TD3')
-        self.lr = 1e-4
+        self.lr = 1e-3
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.actor = Actor(state_dim, action_dim, layer_dim).to(self.device)
@@ -63,18 +64,19 @@ class TD3(object):
             next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
 
             # Compute target Q value
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
-            target_Q = torch.min(target_Q1, target_Q2)
-            # Our system end in 1 step, but we can consider the jump action repetable from the landing point
-            not_done = torch.FloatTensor(np.ones((batch_size,1))).to(self.device)
-            target_Q = reward + not_done * self.discount * target_Q
+            # target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            # target_Q = torch.min(target_Q1, target_Q2)
+            # # Our system end in 1 step, but we can consider the jump action repetable from the landing point
+            # not_done = torch.FloatTensor(np.zeros((batch_size,1))).to(self.device)
+            target_Q = reward #+ not_done * self.discount * target_Q
 
         # Get the current Q estimates
-        current_Q1, current_Q2 = self.critic(state, action)
-
+        # current_Q1, current_Q2 = self.critic(state, action)
+        current_Q = self.critic(state,action)
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q1, target_Q) + \
-            F.mse_loss(current_Q2, target_Q)
+        # critic_loss = F.mse_loss(current_Q1, target_Q) + \
+        #     F.mse_loss(current_Q2, target_Q)
+        critic_loss = F.mse_loss(current_Q,target_Q)
 
         self.writer.add_scalar("Critic loss",critic_loss,self.total_it)
 
@@ -88,7 +90,8 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor loss
-            actor_loss = - self.critic.Q1(state, self.actor(state)).mean()
+            actor_loss = - self.critic(state, self.actor(state)).mean()
+            rospy.loginfo("Updating the networks")
             self.writer.add_scalar("Actor loss", actor_loss, self.total_it)
 
             # Optimize the actor
