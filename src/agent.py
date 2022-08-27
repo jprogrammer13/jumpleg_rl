@@ -52,15 +52,16 @@ class JumplegAgent:
 
         oldExperiemt = os.path.exists('/home/riccardo/ReplayBuffer.joblib')
 
-        self.max_episode = 200
+        self.max_episode = 150
         self.episode_counter = 0
+        self.iteration_counter = 0
         self.first_episode_batch = True
         self.episode_transition = {
             "state": None, "action": None, "next_state": None, "reward": None}
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
         self.batch_size = 128
-        self.exploration_noise = 0.3
+        self.exploration_noise = 0.2
 
 
         if self.mode == 'inferencce':
@@ -88,7 +89,7 @@ class JumplegAgent:
 
         x = -np.random.uniform(0.4,0.5)
         y = 0
-        z = np.random.uniform(0.25,0.4)
+        z = np.random.uniform(0.25,0.28)
 
         return [x, y, z]
 
@@ -108,7 +109,7 @@ class JumplegAgent:
 
         # Generate random action only at the firt episode batch and when the episode number < batch size
          
-        if self.episode_counter < self.batch_size and self.first_episode_batch:
+        if self.iteration_counter < self.batch_size and self.first_episode_batch:
             action = np.random.uniform(-1, 1, self.action_dim)
         else:
             # We add exploration noise
@@ -172,7 +173,7 @@ class JumplegAgent:
             "state": None, "action": None, "next_state": None, "reward": None}
 
         # Train
-        if self.episode_counter > (self.batch_size):
+        if self.iteration_counter > (self.batch_size) or not self.first_episode_batch:
 
             rospy.loginfo(f"TRAINING: {self.episode_counter}")
 
@@ -188,6 +189,7 @@ class JumplegAgent:
         resp.ack = reward
         # print(f"Reward: {reward}")
         self.episode_counter += 1
+        self.iteration_counter += 1
 
         return resp
 
