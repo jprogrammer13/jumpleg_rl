@@ -63,11 +63,6 @@ class JumplegAgent:
         self.batch_size = 128
         self.exploration_noise = 0.2
 
-
-        if self.mode == 'inferencce':
-            # TODO: load model
-            pass
-
         # Start the node
         rospy.init_node(self.node_name)
         rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
@@ -78,6 +73,10 @@ class JumplegAgent:
             self.replayBuffer = joblib.load('/home/riccardo/ReplayBuffer.joblib')
             self.policy.load('/home/riccardo/TD3')
             self.first_episode_batch = False
+
+        if self.mode == 'inference':
+            self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
+
         rospy.spin()
 
     def generate_target(self, CoM):
@@ -95,10 +94,13 @@ class JumplegAgent:
 
     def get_target_handler(self, req):
         resp = get_targetResponse()
-        if self.episode_counter > self.max_episode:
-            self.episode_counter = 0
-            self.first_episode_batch = False
+        if self.mode == 'inference':
             self.targetCoM = self.generate_target(self.CoM0)
+        else:
+            if self.episode_counter > self.max_episode:
+                self.episode_counter = 0
+                self.first_episode_batch = False
+                self.targetCoM = self.generate_target(self.CoM0)
         resp.target_CoM = self.targetCoM
         return resp
 
@@ -107,17 +109,20 @@ class JumplegAgent:
         state = np.array(req.state)
         self.episode_transition['state'] = state
 
-        # Generate random action only at the firt episode batch and when the episode number < batch size
-         
-        if self.iteration_counter < self.batch_size and self.first_episode_batch:
-            action = np.random.uniform(-1, 1, self.action_dim)
+        if self.mode == 'inference':
+            action = self.policy.select_action(state)
         else:
-            # We add exploration noise
-            action = (
-                self.policy.select_action(state)
-                + np.random.normal(0, 1*self.exploration_noise,
-                                   size=self.action_dim)
-            ).clip(-1, 1)
+            # Generate random action only at the firt episode batch and when the episode number < batch size
+
+            if self.iteration_counter < self.batch_size and self.first_episode_batch:
+                action = np.random.uniform(-1, 1, self.action_dim)
+            else:
+                # We add exploration noise
+                action = (
+                    self.policy.select_action(state)
+                    + np.random.normal(0, 1*self.exploration_noise,
+                                       size=self.action_dim)
+                ).clip(-1, 1)
 
         self.episode_transition['action'] = action
 
@@ -163,6 +168,7 @@ class JumplegAgent:
             f"Episode {self.episode_counter}: {self.episode_transition['reward']}")
 
         rospy.loginfo(f"Transition: {self.episode_transition}")
+
         self.replayBuffer.store(self.episode_transition['state'],
                                 self.episode_transition['action'],
                                 self.episode_transition['next_state'],
@@ -171,19 +177,21 @@ class JumplegAgent:
         # reset the partial transition
         self.episode_transition = {
             "state": None, "action": None, "next_state": None, "reward": None}
+        if self.mode == 'inference':
+            self.replayBuffer.dump('/home/riccardo/ReplayBufferInference.joblib')
+        else:
+            # Train
+            if self.iteration_counter > (self.batch_size) or not self.first_episode_batch:
 
-        # Train
-        if self.iteration_counter > (self.batch_size) or not self.first_episode_batch:
+                rospy.loginfo(f"TRAINING: {self.episode_counter}")
 
-            rospy.loginfo(f"TRAINING: {self.episode_counter}")
+                # Save models and replaybuffer
+                if ((self.episode_counter + 1) % 100) == 0:
+                    rospy.loginfo("SAVING")
+                    self.policy.save('/home/riccardo/TD3')
+                    self.replayBuffer.dump('/home/riccardo/ReplayBuffer.joblib')
 
-            # Save models and replaybuffer
-            if ((self.episode_counter + 1) % 100) == 0:
-                rospy.loginfo("SAVING")
-                self.policy.save('/home/riccardo/TD3')
-                self.replayBuffer.dump('/home/riccardo/ReplayBuffer.joblib')
-
-            self.policy.train(self.replayBuffer, self.batch_size)
+                self.policy.train(self.replayBuffer, self.batch_size)
 
         resp = set_rewardResponse()
         resp.ack = reward
