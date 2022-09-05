@@ -22,7 +22,7 @@ class TD3(object):
         tau=0.005,
         policy_noise=0.2,
         noise_clip=0.5,
-        policy_freq=4
+        policy_freq=2
     ):
         self.writer = SummaryWriter('/home/riccardo/TD3')
         self.lr = 1e-3
@@ -109,13 +109,13 @@ class TD3(object):
                     self.tau * param.data + (1 - self.tau) * target_param.data)
 
     def save(self, filename="/home/TD3"):
-        torch.save(self.critic.state_dict(), filename+"_critic.pt")
+        torch.save(self.critic.state_dict(), filename+f"_{self.total_it}_critic.pt")
         torch.save(self.critic_optimizer.state_dict(),
-                   filename+"_critic_optimizer.pt")
+                   filename+f"_{self.total_it}_critic_optimizer.pt")
 
-        torch.save(self.actor.state_dict(), filename+"_actor.pt")
+        torch.save(self.actor.state_dict(), filename+f"_{self.total_it}_actor.pt")
         torch.save(self.actor_optimizer.state_dict(),
-                   filename+"_actor_optimizer.pt")
+                   filename+f"_{self.total_it}_actor_optimizer.pt")
 
     def load(self, filename):
         self.critic.load_state_dict(torch.load(filename + "_critic.pt"))

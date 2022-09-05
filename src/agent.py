@@ -37,22 +37,22 @@ class JumplegAgent:
         # RL
         self.state_dim = 6
         self.action_dim = 5
-        self.max_time = 1.
-        self.min_time = 0.1
+        self.max_time = .8
+        self.min_time = 0.2
         self.max_velocity = 2
-        self.min_velocity = 0.1
+        self.min_velocity = 0.3
         self.max_extension = 0.32
-        self.min_extension = 0.2
+        self.min_extension = 0.15
         self.min_phi = np.pi/4.
         self.min_phi_d = np.pi/6.
-        self.layer_dim = 128
+        self.layer_dim = 256
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.layer_dim)
 
         oldExperiemt = os.path.exists('/home/riccardo/ReplayBuffer.joblib')
 
-        self.max_episode = 150
+        self.max_episode = 15
         self.episode_counter = 0
         self.iteration_counter = 0
         self.first_episode_batch = True
@@ -60,8 +60,8 @@ class JumplegAgent:
             "state": None, "action": None, "next_state": None, "reward": None}
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
-        self.batch_size = 128
-        self.exploration_noise = 0.2
+        self.batch_size = 256
+        self.exploration_noise = 0.4
 
         # Start the node
         rospy.init_node(self.node_name)
@@ -80,24 +80,25 @@ class JumplegAgent:
         rospy.spin()
 
     def generate_target(self, CoM):
-        # rho = np.random.uniform(0, 2 * np.pi)
-        # z = 0.25 #np.random.uniform(0.25,0.5)
-        # r = np.random.uniform(0.5, 0.6)
-        # x = r * np.cos(rho)
-        # y = 0  # r * np.sin(rho)
+        rho = np.random.uniform(-np.pi/4,np.pi/4)
+        # rho = np.random.uniform(-np.pi / 6, np.pi / 6)
+        z = np.random.uniform(0.25,0.4)
+        # z = np.random.uniform(0.25, 0.35)
+        r = np.random.uniform(0.37,0.5)
+        x = r * np.cos(rho)
+        y = r * np.sin(rho)
 
-        x = -np.random.uniform(0.4,0.5)
-        y = 0
-        z = np.random.uniform(0.25,0.28)
-
-        return [x, y, z]
+        return [-x, y, z]
 
     def get_target_handler(self, req):
         resp = get_targetResponse()
         if self.mode == 'inference':
             self.targetCoM = self.generate_target(self.CoM0)
         else:
-            if self.episode_counter > self.max_episode:
+            if self.iteration_counter < self.batch_size:
+                # generate a lot of inital target position
+                self.targetCoM = self.generate_target(self.CoM0)
+            elif self.episode_counter > self.max_episode:
                 self.episode_counter = 0
                 self.first_episode_batch = False
                 self.targetCoM = self.generate_target(self.CoM0)
@@ -116,6 +117,8 @@ class JumplegAgent:
 
             if self.iteration_counter < self.batch_size and self.first_episode_batch:
                 action = np.random.uniform(-1, 1, self.action_dim)
+                # use the untrained net
+                # action = self.policy.select_action(state)
             else:
                 # We add exploration noise
                 action = (
@@ -186,7 +189,7 @@ class JumplegAgent:
                 rospy.loginfo(f"TRAINING: {self.episode_counter}")
 
                 # Save models and replaybuffer
-                if ((self.episode_counter + 1) % 100) == 0:
+                if ((self.iteration_counter + 1) % 100) == 0:
                     rospy.loginfo("SAVING")
                     self.policy.save('/home/riccardo/TD3')
                     self.replayBuffer.dump('/home/riccardo/ReplayBuffer.joblib')
