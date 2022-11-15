@@ -45,14 +45,14 @@ class JumplegAgent:
         self.min_extension = 0.15
         self.min_phi = np.pi/4.
         self.min_phi_d = np.pi/6.
-        self.layer_dim = 256
+        self.layer_dim = 128
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.state_dim, self.action_dim, self.layer_dim)
 
         oldExperiemt = os.path.exists('/home/riccardo/ReplayBuffer.joblib')
 
-        self.max_episode = 15
+        self.max_episode = 150
         self.episode_counter = 0
         self.iteration_counter = 0
         self.first_episode_batch = True
@@ -60,7 +60,7 @@ class JumplegAgent:
             "state": None, "action": None, "next_state": None, "reward": None}
         self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
         self.targetCoM = self.generate_target(self.CoM0)
-        self.batch_size = 256
+        self.batch_size = 128
         self.exploration_noise = 0.4
 
         # Start the node
@@ -95,10 +95,7 @@ class JumplegAgent:
         if self.mode == 'inference':
             self.targetCoM = self.generate_target(self.CoM0)
         else:
-            if self.iteration_counter < self.batch_size:
-                # generate a lot of inital target position
-                self.targetCoM = self.generate_target(self.CoM0)
-            elif self.episode_counter > self.max_episode:
+            if self.episode_counter > self.max_episode:
                 self.episode_counter = 0
                 self.first_episode_batch = False
                 self.targetCoM = self.generate_target(self.CoM0)

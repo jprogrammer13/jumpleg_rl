@@ -25,7 +25,7 @@ class TD3(object):
         policy_freq=2
     ):
         self.writer = SummaryWriter('/home/riccardo/TD3')
-        self.lr = 1e-3
+        self.lr = 3e-4
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         self.actor = Actor(state_dim, action_dim, layer_dim).to(self.device)
