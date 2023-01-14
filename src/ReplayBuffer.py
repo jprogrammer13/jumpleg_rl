@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 import joblib
+import os
+
 
 class ReplayBuffer(object):
     def __init__(self, state_dim, action_dim, max_size=int(1e6)):
@@ -11,10 +13,13 @@ class ReplayBuffer(object):
         self.state = np.zeros((max_size, state_dim))
         self.action = np.zeros((max_size, action_dim))
         self.next_state = np.zeros((max_size, state_dim))
-        self.reward = np.zeros((max_size, 1))
+        self.reward = np.zeros((max_size, 8))
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+
+    def get_number_episode(self):
+        return self.index
 
     def store(self, state, action, next_state, reward):
         self.state[self.index] = state
@@ -32,8 +37,8 @@ class ReplayBuffer(object):
             torch.FloatTensor(self.state[random_index]).to(self.device),
             torch.FloatTensor(self.action[random_index]).to(self.device),
             torch.FloatTensor(self.next_state[random_index]).to(self.device),
-            torch.FloatTensor(self.reward[random_index]).to(self.device)
+            torch.FloatTensor(self.reward[random_index, 0]).to(self.device)
         )
 
-    def dump(self, filepath="ReplayBuffer.joblib"):
-        joblib.dump(self, filepath)
+    def dump(self, out_path, agent_mode):
+        joblib.dump(self, os.path.join(out_path,f'ReplayBuffer_{agent_mode}.joblib'))
