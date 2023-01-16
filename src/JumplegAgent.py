@@ -9,7 +9,6 @@ import argparse
 
 from ReplayBuffer import ReplayBuffer
 from TD3 import TD3
-from jumpleg_rl.src.utils import *
 import time
 import matplotlib.pyplot as plt
 from utils import *
@@ -18,13 +17,15 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class JumplegAgent:
-    def __init__(self, _mode, _data_path, _restore_train):
+    def __init__(self, _mode, _data_path, _model_name, _restore_train):
 
         self.node_name = "JumplegAgent"
 
         self.mode = _mode
         self.data_path = _data_path
+        self.model_name = _model_name
         self.restore_train = _restore_train
+        rospy.loginfo(f'restore_train: {self.restore_train}')
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
@@ -34,25 +35,37 @@ class JumplegAgent:
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
 
-        self.log_writer = SummaryWriter(self.data_path)
+        if not os.path.exists(os.path.join(self.data_path, self.mode)):
+            os.mkdir(os.path.join(self.data_path, self.mode))
+
+        if not os.path.exists(os.path.join(self.data_path, self.mode, 'logs')):
+            os.mkdir(os.path.join(self.data_path, self.mode, 'logs'))
+
+        if not os.path.exists(os.path.join(self.data_path, self.mode, 'partial_weights')):
+            os.mkdir(os.path.join(self.data_path, self.mode, 'partial_weights'))
+
+        self.log_writer = SummaryWriter(
+            os.path.join(self.data_path, self.mode, 'logs'))
 
         self.state_dim = 6
         self.action_dim = 5
 
         # Action limitations
-        self.max_time = 2
+        self.max_time = 1
         self.min_time = 0.1
-        self.max_velocity = 2
+        self.max_velocity = 3
         self.min_velocity = 0.1
         self.max_extension = 0.32
-        self.min_extension = 0.1
+        self.min_extension = 0.15
         self.min_phi = np.pi/6.
         self.min_phi_d = np.pi/6.
 
         # Domain of exploration
         self.exp_az = [0, 2*np.pi]
-        self.exp_el = [0, np.pi]
-        self.exp_r = [0.1, 0.6]
+        # self.exp_el = [0, np.pi]
+        self.exp_el = [0, np.pi/4]
+        # self.exp_r = [0.1, 0.6]
+        self.exp_r = [0.35, 0.6]
 
         # RL
         self.layer_dim = 128
@@ -71,22 +84,27 @@ class JumplegAgent:
 
         # restore train
         if self.restore_train:
-            del self.replayBuffer
+            # del self.replayBuffer
             self.replayBuffer = joblib.load(os.path.join(
-                self.data_path, 'ReplayBuffer_train.joblib'))
+                self.data_path, self.mode, 'ReplayBuffer_train.joblib'))
             self.iteration_counter = self.replayBuffer.get_number_episodes()
 
         # if mode is only train the model weights are note restore
         if self.mode != 'train' or self.restore_train:
 
-            policy_counter = 0
-            net_iteration_counter = self.iteration_counter - self.random_episode
+            if self.restore_train:
 
-            if net_iteration_counter > 0:
-                policy_counter = net_iteration_counter
+                net_iteration_counter = self.iteration_counter - self.random_episode
 
-            self.policy.load(os.path.join(
-                self.data_path, 'last', policy_counter))
+                # chech if TD3 was already trained
+                if net_iteration_counter > 0:
+                    self.policy.load(os.path.join(
+                        self.data_path, self.model_name, net_iteration_counter))
+
+            else:
+                # load pre-trained TD3
+                self.policy.load(os.path.join(
+                    self.data_path, self.model_name, 0))
 
         self.episode_transition = {
             "state": None,
@@ -95,8 +113,7 @@ class JumplegAgent:
             "reward": np.zeros(8)
         }
 
-        self.CoM0 = np.array([-0.01303,  0.00229,  0.25252])
-        self.targetCoM = self.generate_target(self.CoM0)
+        self.targetCoM = self.generate_target()
 
         # Start ROS node
 
@@ -114,7 +131,8 @@ class JumplegAgent:
         # convert it to cartesian coordinates
         x, y, z = sph2cart(az, el, r)
 
-        return [-x, y, z]
+        return [x, y, z+0.25252]
+
 
     def get_target_handler(self, req):
         resp = get_targetResponse()
@@ -204,7 +222,22 @@ class JumplegAgent:
         self.episode_transition['reward'][6] = req.joint_torques
         self.episode_transition['reward'][7] = req.error_vel_liftoff
 
-        self.log_writer.add_scalar()
+        self.log_writer.add_scalar(
+            'Reward', req.reward, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Target Cost(Distance)', req.target_cost, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Unilateral', req.unilateral, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Friction', req.friction, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Singularity', req.singularity, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Joint range', req.joint_range, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Joint torque', req.joint_torques, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Error liftoff vel', req.error_vel_liftoff, self.iteration_counter)
 
         rospy.loginfo(
             f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward'][0]}")
@@ -236,11 +269,12 @@ class JumplegAgent:
                         f"Saving RL agent networks, epoch {net_iteration_counter}")
 
                     self.policy.save(os.path.join(
-                        self.data_path, 'partial_weights'), str(net_iteration_counter))
+                        self.data_path, self.mode, 'partial_weights'), str(net_iteration_counter))
 
                 self.policy.save(self.data_path, 'latest')
 
-        self.replayBuffer.dump(self.data_path, self.mode)
+        self.replayBuffer.dump(os.path.join(
+            self.data_path, self.mode), self.mode)
 
         resp = set_rewardResponse()
         resp.ack = req.reward
@@ -257,9 +291,14 @@ if __name__ == '__main__':
                         default="inference", nargs="?", help='Agent mode')
     parser.add_argument('--data_path', type=str,
                         default=None, nargs="?", help='Path of RL data')
+    parser.add_argument('--model_name', type=str,
+                        default='latest', nargs="?", help='Iteration of the model')
     parser.add_argument('--restore_train', type=bool,
                         default=False, nargs="?", help='Restore training flag')
 
-    args = parser.parse_args(rospy.myargv()[1:])
+    # args = parser.parse_args(rospy.myargv()[1:])
+    rospy.loginfo(f'haloooo: rospy.myargv()')
 
-    jumplegAgent = JumplegAgent(args.mode, args.data_path, args.restore_train)
+    # jumplegAgent = JumplegAgent(args.mode, args.data_path, False)
+    jumplegAgent = JumplegAgent(
+        'train', '/home/riccardo/jumpleg_agent', 'latest', False)

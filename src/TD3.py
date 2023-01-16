@@ -15,7 +15,7 @@ from ReplayBuffer import ReplayBuffer
 class TD3(object):
     def __init__(
         self,
-        log_log_writer,
+        log_writer,
         state_dim,
         action_dim,
         layer_dim,
@@ -25,7 +25,7 @@ class TD3(object):
         noise_clip=0.5,
         policy_freq=2
     ):
-        self.log_log_writer = log_log_writer
+        self.log_writer = log_writer
         self.lr = 3e-4
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")

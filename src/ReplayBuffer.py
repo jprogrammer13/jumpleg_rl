@@ -18,7 +18,7 @@ class ReplayBuffer(object):
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
-    def get_number_episode(self):
+    def get_number_episodes(self):
         return self.index
 
     def store(self, state, action, next_state, reward):
