@@ -41,8 +41,10 @@ class JumplegAgent:
         if not os.path.exists(os.path.join(self.data_path, self.mode, 'logs')):
             os.mkdir(os.path.join(self.data_path, self.mode, 'logs'))
 
-        if not os.path.exists(os.path.join(self.data_path, self.mode, 'partial_weights')):
-            os.mkdir(os.path.join(self.data_path, self.mode, 'partial_weights'))
+        if self.mode == 'train':
+            if not os.path.exists(os.path.join(self.data_path, self.mode, 'partial_weights')):
+                os.mkdir(os.path.join(self.data_path,
+                         self.mode, 'partial_weights'))
 
         self.log_writer = SummaryWriter(
             os.path.join(self.data_path, self.mode, 'logs'))
@@ -51,21 +53,27 @@ class JumplegAgent:
         self.action_dim = 5
 
         # Action limitations
-        self.max_time = 1
-        self.min_time = 0.1
-        self.max_velocity = 3
-        self.min_velocity = 0.1
+        self.max_time = 0.8
+        self.min_time = 0.2
+        self.max_velocity = 2
+        self.min_velocity = 0.3
         self.max_extension = 0.32
         self.min_extension = 0.15
-        self.min_phi = np.pi/6.
+        self.min_phi = np.pi/4.
         self.min_phi_d = np.pi/6.
 
         # Domain of exploration
-        self.exp_az = [0, 2*np.pi]
-        # self.exp_el = [0, np.pi]
-        self.exp_el = [0, np.pi/4]
-        # self.exp_r = [0.1, 0.6]
-        self.exp_r = [0.35, 0.6]
+        # self.exp_az = [0, 2*np.pi]
+        # # self.exp_el = [0, np.pi]
+        # self.exp_el = [0, np.pi/4]
+        # # self.exp_r = [0.1, 0.6]
+        # self.exp_r = [0.35, 0.6]
+        # self.exp_az = [np.pi / 3, -np.pi / 3]
+        # self.exp_el = [0, np.pi / 4]
+        # self.exp_r = [0.35, 0.5]
+        self.exp_rho = [-np.pi/3., np.pi/3.]
+        self.exp_z = [0.25, 0.45]
+        self.exp_r = [0.37, 0.55]
 
         # RL
         self.layer_dim = 128
@@ -80,7 +88,7 @@ class JumplegAgent:
         self.max_episode_target = 1
         self.episode_counter = 0
         self.iteration_counter = 0
-        self.random_episode = 128
+        self.random_episode = 640
 
         # restore train
         if self.restore_train:
@@ -89,7 +97,7 @@ class JumplegAgent:
                 self.data_path, self.mode, 'ReplayBuffer_train.joblib'))
             self.iteration_counter = self.replayBuffer.get_number_episodes()
 
-        # if mode is only train the model weights are note restore
+        # if mode is only train the model weights are not restore
         if self.mode != 'train' or self.restore_train:
 
             if self.restore_train:
@@ -98,13 +106,12 @@ class JumplegAgent:
 
                 # chech if TD3 was already trained
                 if net_iteration_counter > 0:
-                    self.policy.load(os.path.join(
-                        self.data_path, self.model_name, net_iteration_counter))
+                    self.policy.load(
+                        self.data_path, self.model_name, net_iteration_counter)
 
             else:
                 # load pre-trained TD3
-                self.policy.load(os.path.join(
-                    self.data_path, self.model_name, 0))
+                self.policy.load(self.data_path, self.model_name, 0)
 
         self.episode_transition = {
             "state": None,
@@ -122,17 +129,23 @@ class JumplegAgent:
 
         rospy.spin()
 
+    # def generate_target(self):
+    #     # generate 3d point in sperical coordinates
+    #     az = np.random.uniform(self.exp_az[0], self.exp_az[1])
+    #     el = np.random.uniform(self.exp_el[0], self.exp_el[1])
+    #     r = np.random.uniform(self.exp_r[0], self.exp_r[1])
+    #
+    #     # convert it to cartesian coordinates
+    #     x, y, z = sph2cart(az, el, r)
+    #
+    #     return [-x, y, z+0.25252]
     def generate_target(self):
-        # generate 3d point in sperical coordinates
-        az = np.random.uniform(self.exp_az[0], self.exp_az[1])
-        el = np.random.uniform(self.exp_el[0], self.exp_el[1])
+        rho = np.random.uniform(self.exp_rho[0], self.exp_rho[1])
+        z = np.random.uniform(self.exp_z[0], self.exp_z[1])
         r = np.random.uniform(self.exp_r[0], self.exp_r[1])
-
-        # convert it to cartesian coordinates
-        x, y, z = sph2cart(az, el, r)
-
-        return [x, y, z+0.25252]
-
+        x = r * np.cos(rho)
+        y = r * np.sin(rho)
+        return [-x, y, z]
 
     def get_target_handler(self, req):
         resp = get_targetResponse()
@@ -163,7 +176,7 @@ class JumplegAgent:
 
         elif self.mode == 'train':
             # Check if we have enought iteration to start the training
-            if self.iteration_counter > self.random_episode:
+            if self.iteration_counter >= self.random_episode:
                 # Get action from policy and apply exploration noise
                 action = (
                     self.policy.select_action(state) +
@@ -213,14 +226,14 @@ class JumplegAgent:
     def set_reward_handler(self, req):
         self.episode_transition['next_state'] = np.array(req.next_state)
 
-        self.episode_transition['reward'][0] = req.reward
-        self.episode_transition['reward'][1] = req.target_cost
-        self.episode_transition['reward'][2] = req.unilateral
-        self.episode_transition['reward'][3] = req.friction
-        self.episode_transition['reward'][4] = req.singularity
-        self.episode_transition['reward'][5] = req.joint_range
-        self.episode_transition['reward'][6] = req.joint_torques
-        self.episode_transition['reward'][7] = req.error_vel_liftoff
+        self.episode_transition['reward'][0] = np.array(req.reward)
+        self.episode_transition['reward'][1] = np.array(req.target_cost)
+        self.episode_transition['reward'][2] = np.array(req.unilateral)
+        self.episode_transition['reward'][3] = np.array(req.friction)
+        self.episode_transition['reward'][4] = np.array(req.singularity)
+        self.episode_transition['reward'][5] = np.array(req.joint_range)
+        self.episode_transition['reward'][6] = np.array(req.joint_torques)
+        self.episode_transition['reward'][7] = np.array(req.error_vel_liftoff)
 
         self.log_writer.add_scalar(
             'Reward', req.reward, self.iteration_counter)
@@ -273,8 +286,10 @@ class JumplegAgent:
 
                 self.policy.save(self.data_path, 'latest')
 
-        self.replayBuffer.dump(os.path.join(
-            self.data_path, self.mode), self.mode)
+        if (self.iteration_counter + 1) % 100 == 0:
+
+            self.replayBuffer.dump(os.path.join(
+                self.data_path, self.mode), self.mode)
 
         resp = set_rewardResponse()
         resp.ack = req.reward
@@ -301,4 +316,4 @@ if __name__ == '__main__':
 
     # jumplegAgent = JumplegAgent(args.mode, args.data_path, False)
     jumplegAgent = JumplegAgent(
-        'train', '/home/riccardo/jumpleg_agent', 'latest', False)
+        'inference', '/home/riccardo/jumpleg_circular', 'latest', False)
