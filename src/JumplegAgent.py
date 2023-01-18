@@ -117,7 +117,7 @@ class JumplegAgent:
             "state": None,
             "action": None,
             "next_state": None,
-            "reward": np.zeros(8)
+            "reward": None
         }
 
         self.targetCoM = self.generate_target()
@@ -226,14 +226,7 @@ class JumplegAgent:
     def set_reward_handler(self, req):
         self.episode_transition['next_state'] = np.array(req.next_state)
 
-        self.episode_transition['reward'][0] = np.array(req.reward)
-        self.episode_transition['reward'][1] = np.array(req.target_cost)
-        self.episode_transition['reward'][2] = np.array(req.unilateral)
-        self.episode_transition['reward'][3] = np.array(req.friction)
-        self.episode_transition['reward'][4] = np.array(req.singularity)
-        self.episode_transition['reward'][5] = np.array(req.joint_range)
-        self.episode_transition['reward'][6] = np.array(req.joint_torques)
-        self.episode_transition['reward'][7] = np.array(req.error_vel_liftoff)
+        self.episode_transition['reward'] = np.array(req.reward)
 
         self.log_writer.add_scalar(
             'Reward', req.reward, self.iteration_counter)
@@ -253,7 +246,7 @@ class JumplegAgent:
             'Error liftoff vel', req.error_vel_liftoff, self.iteration_counter)
 
         rospy.loginfo(
-            f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward'][0]}")
+            f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
         rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
 
         self.replayBuffer.store(self.episode_transition['state'],
@@ -266,7 +259,7 @@ class JumplegAgent:
             "state": None,
             "action": None,
             "next_state": None,
-            "reward": np.zeros(8)
+            "reward": None
         }
 
         if self.mode == 'train':
@@ -292,7 +285,7 @@ class JumplegAgent:
                 self.data_path, self.mode), self.mode)
 
         resp = set_rewardResponse()
-        resp.ack = req.reward
+        resp.ack = np.array(req.reward)
 
         self.episode_counter += 1
         self.iteration_counter += 1
