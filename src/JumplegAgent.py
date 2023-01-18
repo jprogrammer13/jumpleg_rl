@@ -24,8 +24,9 @@ class JumplegAgent:
         self.mode = _mode
         self.data_path = _data_path
         self.model_name = _model_name
-        self.restore_train = _restore_train
+        self.restore_train = eval(_restore_train) # convert string back to bool
         rospy.loginfo(f'restore_train: {self.restore_train}')
+
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
@@ -34,6 +35,9 @@ class JumplegAgent:
                                             self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+
 
         if not os.path.exists(os.path.join(self.data_path, self.mode)):
             os.mkdir(os.path.join(self.data_path, self.mode))
@@ -301,12 +305,9 @@ if __name__ == '__main__':
                         default=None, nargs="?", help='Path of RL data')
     parser.add_argument('--model_name', type=str,
                         default='latest', nargs="?", help='Iteration of the model')
-    parser.add_argument('--restore_train', type=bool,
-                        default=False, nargs="?", help='Restore training flag')
+    parser.add_argument('--restore_train', default=False, nargs="?", help='Restore training flag')
 
-    # args = parser.parse_args(rospy.myargv()[1:])
-    rospy.loginfo(f'haloooo: rospy.myargv()')
+    args = parser.parse_args(rospy.myargv()[1:])
 
-    # jumplegAgent = JumplegAgent(args.mode, args.data_path, False)
     jumplegAgent = JumplegAgent(
-        'inference', '/home/riccardo/jumpleg_circular', 'latest', False)
+           args.mode, args.data_path, args.model_name, args.restore_train)
