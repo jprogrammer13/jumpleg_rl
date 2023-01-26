@@ -75,7 +75,7 @@ class JumplegAgent:
         # self.exp_az = [np.pi / 3, -np.pi / 3]
         # self.exp_el = [0, np.pi / 4]
         # self.exp_r = [0.35, 0.5]
-        self.exp_rho = [-np.pi/3., np.pi/3.]
+        self.exp_rho = [-np.pi, np.pi]
         self.exp_z = [0.25, 0.45]
         self.exp_r = [0.37, 0.55]
 
@@ -92,7 +92,7 @@ class JumplegAgent:
         self.max_episode_target = 1
         self.episode_counter = 0
         self.iteration_counter = 0
-        self.random_episode = 640
+        self.random_episode = 1280
 
         # restore train
         if self.restore_train:
