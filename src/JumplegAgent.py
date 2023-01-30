@@ -54,39 +54,25 @@ class JumplegAgent:
             os.path.join(self.data_path, self.mode, 'logs'))
 
         self.state_dim = 6
-        self.action_dim = 5
+        self.action_dim = 19
 
         # Action limitations
         self.max_time = 0.8
         self.min_time = 0.2
-        self.max_velocity = 2
-        self.min_velocity = 0.3
-        self.max_extension = 0.32
-        self.min_extension = 0.15
-        self.min_phi = np.pi/4.
-        self.min_phi_d = np.pi/6.
+        self.max_coefficient = 50
 
-        # Domain of exploration
-        # self.exp_az = [0, 2*np.pi]
-        # # self.exp_el = [0, np.pi]
-        # self.exp_el = [0, np.pi/4]
-        # # self.exp_r = [0.1, 0.6]
-        # self.exp_r = [0.35, 0.6]
-        # self.exp_az = [np.pi / 3, -np.pi / 3]
-        # self.exp_el = [0, np.pi / 4]
-        # self.exp_r = [0.35, 0.5]
         self.exp_rho = [-np.pi, np.pi]
         self.exp_z = [0.25, 0.45]
         self.exp_r = [0.37, 0.55]
 
         # RL
-        self.layer_dim = 128
+        self.layer_dim = 256
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 128
+        self.batch_size = 256
         self.exploration_noise = 0.4
 
         self.max_episode_target = 1
@@ -133,16 +119,6 @@ class JumplegAgent:
 
         rospy.spin()
 
-    # def generate_target(self):
-    #     # generate 3d point in sperical coordinates
-    #     az = np.random.uniform(self.exp_az[0], self.exp_az[1])
-    #     el = np.random.uniform(self.exp_el[0], self.exp_el[1])
-    #     r = np.random.uniform(self.exp_r[0], self.exp_r[1])
-    #
-    #     # convert it to cartesian coordinates
-    #     x, y, z = sph2cart(az, el, r)
-    #
-    #     return [-x, y, z+0.25252]
     def generate_target(self):
         rho = np.random.uniform(self.exp_rho[0], self.exp_rho[1])
         z = np.random.uniform(self.exp_z[0], self.exp_z[1])
@@ -201,27 +177,10 @@ class JumplegAgent:
         T_th = (self.max_time - self.min_time) * \
             0.5*(action[0]+1) + self.min_time
 
-        phi = (np.pi/2 - self.min_phi) * (0.5*(action[1]+1)) + self.min_phi
-
-        r = (self.max_extension - self.min_extension) * \
-            0.5*(action[2]+1) + self.min_extension
-
-        ComF_x, ComF_y, ComF_z = sph2cart(theta, phi, r)
-
-        phi_d = (np.pi/2 - self.min_phi_d)*(0.5*(action[3]+1))+self.min_phi_d
-
-        r_d = (self.max_velocity - self.min_velocity) * \
-            (0.5*(action[4]+1)) + self.min_velocity
-
-        ComFd_x, ComFd_y, ComFd_z = sph2cart(theta, phi_d, r_d)
+        coeff = [action[1:]]
 
         final_action = np.concatenate(([T_th],
-                                       [ComF_x],
-                                       [ComF_y],
-                                       [ComF_z],
-                                       [ComFd_x],
-                                       [ComFd_y],
-                                       [ComFd_z]))
+                                        coeff))
 
         resp = get_actionResponse()
         resp.action = final_action
