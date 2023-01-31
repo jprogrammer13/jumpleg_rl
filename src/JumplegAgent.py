@@ -147,6 +147,7 @@ class JumplegAgent:
         return resp
 
     def get_action_handler(self, req):
+        #rospy.loginfo(f"Episode number : {self.iteration_counter}")
         state = np.array(req.state)
         self.episode_transition['state'] = state
 
