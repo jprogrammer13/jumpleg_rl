@@ -59,7 +59,7 @@ class JumplegAgent:
         # Action limitations
         self.max_time = 0.8
         self.min_time = 0.2
-        self.max_coefficient = 50
+        self.max_coefficient = 10
 
         self.exp_rho = [-np.pi, np.pi]
         self.exp_z = [0.25, 0.45]
@@ -172,15 +172,12 @@ class JumplegAgent:
 
         # Performs action composition from [-1,1]
 
-        theta, _, _ = cart2sph(state[3], state[4], state[5])
-
         T_th = (self.max_time - self.min_time) * \
             0.5*(action[0]+1) + self.min_time
 
-        coeff = [action[1:]]
+        coeff = action[1:]*self.max_coefficient
 
-        final_action = np.concatenate(([T_th],
-                                        coeff))
+        final_action = np.concatenate(([T_th], coeff))
 
         resp = get_actionResponse()
         resp.action = final_action
