@@ -79,7 +79,7 @@ class JumplegAgent:
         # self.exp_z = [0.25, 0.45]
         # self.exp_r = [0.37, 0.55]
         self.exp_rho = [-np.pi, np.pi]
-        self.exp_z = [0.25, 0.8]
+        self.exp_z = [0.25, 0.6]
         self.exp_r = [0., 0.8]
 
         # RL
