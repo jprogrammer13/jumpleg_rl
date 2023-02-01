@@ -24,9 +24,9 @@ class JumplegAgent:
         self.mode = _mode
         self.data_path = _data_path
         self.model_name = _model_name
-        self.restore_train = eval(_restore_train) # convert string back to bool
+        # convert string back to bool
+        self.restore_train = eval(_restore_train)
         rospy.loginfo(f'restore_train: {self.restore_train}')
-
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
@@ -35,23 +35,31 @@ class JumplegAgent:
                                             self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
+
         if not os.path.exists(self.data_path):
             os.mkdir(self.data_path)
 
+        self.main_folder = os.path.join(self.data_path, self.mode)
 
-        if not os.path.exists(os.path.join(self.data_path, self.mode)):
-            os.mkdir(os.path.join(self.data_path, self.mode))
+        if not os.path.exists(self.main_folder):
+            os.mkdir(self.main_folder)
 
-        if not os.path.exists(os.path.join(self.data_path, self.mode, 'logs')):
-            os.mkdir(os.path.join(self.data_path, self.mode, 'logs'))
+        if self.mode == 'test':
+            self.main_folder = os.path.join(
+                self.data_path, self.mode, f'model_{self.model_name}')
+
+            if not os.path.exists(self.main_folder):
+                os.mkdir(self.main_folder)
+
+        if not os.path.exists(os.path.join(self.main_folder, 'logs')):
+            os.mkdir(os.path.join(self.main_folder, 'logs'))
 
         if self.mode == 'train':
-            if not os.path.exists(os.path.join(self.data_path, self.mode, 'partial_weights')):
-                os.mkdir(os.path.join(self.data_path,
-                         self.mode, 'partial_weights'))
+            if not os.path.exists(os.path.join(self.main_folder, 'partial_weights')):
+                os.mkdir(os.path.join(self.main_folder, 'partial_weights'))
 
         self.log_writer = SummaryWriter(
-            os.path.join(self.data_path, self.mode, 'logs'))
+            os.path.join(self.main_folder, 'logs'))
 
         self.state_dim = 6
         self.action_dim = 5
@@ -66,18 +74,13 @@ class JumplegAgent:
         self.min_phi = np.pi/4.
         self.min_phi_d = np.pi/6.
 
-        # Domain of exploration
-        # self.exp_az = [0, 2*np.pi]
-        # # self.exp_el = [0, np.pi]
-        # self.exp_el = [0, np.pi/4]
-        # # self.exp_r = [0.1, 0.6]
-        # self.exp_r = [0.35, 0.6]
-        # self.exp_az = [np.pi / 3, -np.pi / 3]
-        # self.exp_el = [0, np.pi / 4]
-        # self.exp_r = [0.35, 0.5]
+        # Domain of targetCoM
+        # self.exp_rho = [-np.pi, np.pi]
+        # self.exp_z = [0.25, 0.45]
+        # self.exp_r = [0.37, 0.55]
         self.exp_rho = [-np.pi, np.pi]
-        self.exp_z = [0.25, 0.45]
-        self.exp_r = [0.37, 0.55]
+        self.exp_z = [0.25, 0.8]
+        self.exp_r = [0., 0.8]
 
         # RL
         self.layer_dim = 128
@@ -94,11 +97,18 @@ class JumplegAgent:
         self.iteration_counter = 0
         self.random_episode = 1280
 
+        self.test_points = []
+        self.rb_dump_it = 100 if self.mode == 'train' else 10
+
+        if self.mode == 'test':
+            self.test_points = np.loadtxt(
+                os.environ["LOCOSIM_DIR"] + "/robot_control/jumpleg_rl/src/"+'test_points.txt')
+
         # restore train
         if self.restore_train:
             # del self.replayBuffer
             self.replayBuffer = joblib.load(os.path.join(
-                self.data_path, self.mode, 'ReplayBuffer_train.joblib'))
+                self.main_folder, 'ReplayBuffer_train.joblib'))
             self.iteration_counter = self.replayBuffer.get_number_episodes()
 
         # if mode is only train the model weights are not restore
@@ -133,16 +143,6 @@ class JumplegAgent:
 
         rospy.spin()
 
-    # def generate_target(self):
-    #     # generate 3d point in sperical coordinates
-    #     az = np.random.uniform(self.exp_az[0], self.exp_az[1])
-    #     el = np.random.uniform(self.exp_el[0], self.exp_el[1])
-    #     r = np.random.uniform(self.exp_r[0], self.exp_r[1])
-    #
-    #     # convert it to cartesian coordinates
-    #     x, y, z = sph2cart(az, el, r)
-    #
-    #     return [-x, y, z+0.25252]
     def generate_target(self):
         rho = np.random.uniform(self.exp_rho[0], self.exp_rho[1])
         z = np.random.uniform(self.exp_z[0], self.exp_z[1])
@@ -158,8 +158,10 @@ class JumplegAgent:
             self.targetCoM = self.generate_target()
 
         elif self.mode == 'test':
-            # TODO Generate test semisphere
-            pass
+            if self.iteration_counter < self.test_points.shape[0]:
+                self.targetCoM = self.test_points[self.iteration_counter]
+            else:  # send stop signal
+                self.targetCoM = [0, 0, -1]
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -279,14 +281,13 @@ class JumplegAgent:
                         f"Saving RL agent networks, epoch {net_iteration_counter}")
 
                     self.policy.save(os.path.join(
-                        self.data_path, self.mode, 'partial_weights'), str(net_iteration_counter))
+                        self.main_folder, 'partial_weights'), str(net_iteration_counter))
 
                 self.policy.save(self.data_path, 'latest')
 
-        if (self.iteration_counter + 1) % 100 == 0:
-
+        if (self.iteration_counter + 1) % self.rb_dump_it == 0:
             self.replayBuffer.dump(os.path.join(
-                self.data_path, self.mode), self.mode)
+                self.main_folder), self.mode)
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
@@ -305,9 +306,10 @@ if __name__ == '__main__':
                         default=None, nargs="?", help='Path of RL data')
     parser.add_argument('--model_name', type=str,
                         default='latest', nargs="?", help='Iteration of the model')
-    parser.add_argument('--restore_train', default=False, nargs="?", help='Restore training flag')
+    parser.add_argument('--restore_train', default=False,
+                        nargs="?", help='Restore training flag')
 
     args = parser.parse_args(rospy.myargv()[1:])
 
     jumplegAgent = JumplegAgent(
-           args.mode, args.data_path, args.model_name, args.restore_train)
+        args.mode, args.data_path, args.model_name, args.restore_train)
