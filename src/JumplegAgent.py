@@ -62,8 +62,8 @@ class JumplegAgent:
         self.max_coefficient = 10
 
         self.exp_rho = [-np.pi, np.pi]
-        self.exp_z = [0.25, 0.45]
-        self.exp_r = [0.37, 0.55]
+        self.exp_z = [0.25, 0.5]
+        self.exp_r = [0.37, 0.65]
 
         # RL
         self.layer_dim = 256

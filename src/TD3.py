@@ -29,6 +29,7 @@ class TD3(object):
         self.lr = 3e-4
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+        print(f"Running TD3 on {self.device}")
         self.actor = Actor(state_dim, action_dim, layer_dim).to(self.device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(
