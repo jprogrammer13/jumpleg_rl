@@ -77,7 +77,7 @@ class JumplegAgent:
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.log_writer, self.state_dim,
-                          self.action_dim, self.layer_dim, self.max_torqe)
+                          self.action_dim, self.layer_dim)
 
         self.batch_size = 128
         self.exploration_noise = 0.4
@@ -185,9 +185,9 @@ class JumplegAgent:
                 # If we don't have enought iteration, genreate random action
                 action = np.random.uniform(-1, 1, self.action_dim)
 
-        action = action*self.max_torqe
-
         self.episode_transition['action'] = action
+        
+        action = action*self.max_torqe
 
         resp = get_actionResponse()
         resp.action = action

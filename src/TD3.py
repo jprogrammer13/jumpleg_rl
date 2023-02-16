@@ -19,7 +19,6 @@ class TD3(object):
         state_dim,
         action_dim,
         layer_dim,
-        max_action,
         discount=0.99,
         tau=0.005,
         policy_noise=0.2,
@@ -64,7 +63,7 @@ class TD3(object):
             noise = (torch.randn_like(action) *
                      self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-            next_action = (self.actor_target(next_state)+noise).clamp(-self.max_action, self.max_action)
+            next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
             target_Q1, target_Q2 = self.critic_target(next_state, next_action)
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + (1-done) * self.discount * target_Q
