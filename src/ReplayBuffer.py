@@ -14,6 +14,7 @@ class ReplayBuffer(object):
         self.action = np.zeros((max_size, action_dim))
         self.next_state = np.zeros((max_size, state_dim))
         self.reward = np.zeros((max_size, 1))
+        self.done = np.zeros((max_size, 1))
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -21,11 +22,12 @@ class ReplayBuffer(object):
     def get_number_episodes(self):
         return self.index
 
-    def store(self, state, action, next_state, reward):
+    def store(self, state, action, next_state, reward, done):
         self.state[self.index] = state
         self.action[self.index] = action
         self.next_state[self.index] = next_state
         self.reward[self.index] = reward
+        self.done[self.index] = done
 
         self.index = (self.index + 1) % self.max_size
         self.mem_size = min(self.mem_size + 1, self.max_size)
@@ -37,7 +39,8 @@ class ReplayBuffer(object):
             torch.FloatTensor(self.state[random_index]).to(self.device),
             torch.FloatTensor(self.action[random_index]).to(self.device),
             torch.FloatTensor(self.next_state[random_index]).to(self.device),
-            torch.FloatTensor(self.reward[random_index]).to(self.device)
+            torch.FloatTensor(self.reward[random_index]).to(self.device),
+            torch.FloatTensor(self.done[random_index]).to(self.device)
         )
 
     def dump(self, out_path, agent_mode):

@@ -1,5 +1,6 @@
 float64[] next_state
 float64 reward
+bool done
 float64 target_cost
 float64 unilateral
 float64 friction

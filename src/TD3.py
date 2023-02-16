@@ -19,6 +19,7 @@ class TD3(object):
         state_dim,
         action_dim,
         layer_dim,
+        max_action,
         discount=0.99,
         tau=0.005,
         policy_noise=0.2,
@@ -40,6 +41,7 @@ class TD3(object):
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=self.lr)
 
+        self.max_action = max_action
         self.discount = discount
         self.tau = tau
         self.policy_noise = policy_noise
@@ -56,22 +58,22 @@ class TD3(object):
     def train(self, replay_buffer, batch_size=256):
         self.total_it += 1
 
-        state, action, next_state, reward = replay_buffer.sample(batch_size)
+        state, action, next_state, reward, done = replay_buffer.sample(batch_size)
         self.actor.train()
         with torch.no_grad():
             noise = (torch.randn_like(action) *
                      self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-            # This becouse we want to have an action {-1,1} to scale after
-            next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
-
-            target_Q = reward  # + not_done * self.discount * target_Q
+            next_action = (self.actor_target(next_state)+noise).clamp(-self.max_action, self.max_action)
+            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q = torch.min(target_Q1, target_Q2)
+            target_Q = reward + (1-done) * self.discount * target_Q
 
         # Get the current Q estimates
-        current_Q = self.critic(state, action)
+        current_Q1, current_Q2 = self.critic(state, action)
 
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q, target_Q)
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
 
         self.log_writer.add_scalar("Critic loss", critic_loss, self.total_it)
 
@@ -85,7 +87,7 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor loss
-            actor_loss = - self.critic(state, self.actor(state)).mean()
+            actor_loss = - self.critic.Q1(state, self.actor(state)).mean()
             rospy.loginfo("Updating the networks")
             self.log_writer.add_scalar("Actor loss", actor_loss, self.total_it)
 
