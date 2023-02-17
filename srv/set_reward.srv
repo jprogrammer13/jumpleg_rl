@@ -7,6 +7,5 @@ float64 friction
 float64 singularity
 float64 joint_range
 float64 joint_torques
-float64 error_vel_liftoff
 ---
 float64 ack

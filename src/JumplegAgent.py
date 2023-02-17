@@ -84,6 +84,7 @@ class JumplegAgent:
 
         self.max_episode_target = 1
         self.episode_counter = 0
+        self.real_episode_counter = 0
         self.iteration_counter = 0
         self.random_episode = 1280
 
@@ -201,24 +202,21 @@ class JumplegAgent:
 
         if req.done:
             self.log_writer.add_scalar(
-                'Reward', req.reward, self.iteration_counter)
+                'Reward', req.reward, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Target Cost(Distance)', req.target_cost, self.iteration_counter)
+                'Target Cost(Distance)', req.target_cost, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Unilateral', req.unilateral, self.iteration_counter)
+                'Unilateral', req.unilateral, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Friction', req.friction, self.iteration_counter)
+                'Friction', req.friction, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Singularity', req.singularity, self.iteration_counter)
+                'Singularity', req.singularity, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Joint range', req.joint_range, self.iteration_counter)
+                'Joint range', req.joint_range, self.real_episode_counter)
             self.log_writer.add_scalar(
-                'Joint torque', req.joint_torques, self.iteration_counter)
-            self.log_writer.add_scalar(
-                'Error liftoff vel', req.error_vel_liftoff, self.iteration_counter)
-
+                'Joint torque', req.joint_torques, self.real_episode_counter)
             rospy.loginfo(
-                f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
+                f"Reward[it {self.real_episode_counter}]: {self.episode_transition['reward']}")
             rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
 
         self.replayBuffer.store(self.episode_transition['state'],
@@ -264,6 +262,7 @@ class JumplegAgent:
         if req.done:
             # episode is done only when done is 1
             self.episode_counter += 1
+            self.real_episode_counter += 1
 
         self.iteration_counter += 1
 

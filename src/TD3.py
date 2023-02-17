@@ -40,7 +40,6 @@ class TD3(object):
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=self.lr)
 
-        self.max_action = max_action
         self.discount = discount
         self.tau = tau
         self.policy_noise = policy_noise
