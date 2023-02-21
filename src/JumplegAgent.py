@@ -61,7 +61,7 @@ class JumplegAgent:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 6
+        self.state_dim = 15
         self.action_dim = 3
 
         # Action limitations
@@ -237,24 +237,24 @@ class JumplegAgent:
 
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
+                if req.done:
+                    self.policy.train(self.replayBuffer, self.batch_size)
+                    net_iteration_counter = self.iteration_counter - self.random_episode
 
-                self.policy.train(self.replayBuffer, self.batch_size)
+                    if (net_iteration_counter + 1) % 1000 == 0:
 
-                net_iteration_counter = self.iteration_counter - self.random_episode
+                        rospy.loginfo(
+                            f"Saving RL agent networks, epoch {net_iteration_counter}")
 
-                if (net_iteration_counter + 1) % 1000 == 0:
+                        self.policy.save(os.path.join(
+                            self.main_folder, 'partial_weights'), str(net_iteration_counter))
 
-                    rospy.loginfo(
-                        f"Saving RL agent networks, epoch {net_iteration_counter}")
+                    self.policy.save(self.data_path, 'latest')
 
-                    self.policy.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(net_iteration_counter))
-
-                self.policy.save(self.data_path, 'latest')
-
-        if (self.iteration_counter + 1) % self.rb_dump_it == 0:
-            self.replayBuffer.dump(os.path.join(
-                self.main_folder), self.mode)
+        if req.done:
+            if (self.iteration_counter + 1) % self.rb_dump_it == 0:
+                self.replayBuffer.dump(os.path.join(
+                    self.main_folder), self.mode)
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
