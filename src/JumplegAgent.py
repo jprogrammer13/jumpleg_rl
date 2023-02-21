@@ -35,20 +35,28 @@ class JumplegAgent:
                                             self.get_target_handler)
         self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward,
                                             self.set_reward_handler)
+
         if not os.path.exists(self.data_path):
-            os.mkdir(self.data_path)
+                    os.mkdir(self.data_path)
 
+        self.main_folder = os.path.join(self.data_path, self.mode)
 
-        if not os.path.exists(os.path.join(self.data_path, self.mode)):
-            os.mkdir(os.path.join(self.data_path, self.mode))
+        if not os.path.exists(self.main_folder):
+            os.mkdir(self.main_folder)
 
-        if not os.path.exists(os.path.join(self.data_path, self.mode, 'logs')):
-            os.mkdir(os.path.join(self.data_path, self.mode, 'logs'))
+        if self.mode == 'test':
+            self.main_folder = os.path.join(
+                self.data_path, self.mode, f'model_{self.model_name}')
+
+            if not os.path.exists(self.main_folder):
+                os.mkdir(self.main_folder)
+
+        if not os.path.exists(os.path.join(self.main_folder, 'logs')):
+            os.mkdir(os.path.join(self.main_folder, 'logs'))
 
         if self.mode == 'train':
-            if not os.path.exists(os.path.join(self.data_path, self.mode, 'partial_weights')):
-                os.mkdir(os.path.join(self.data_path,
-                         self.mode, 'partial_weights'))
+            if not os.path.exists(os.path.join(self.main_folder, 'partial_weights')):
+                os.mkdir(os.path.join(self.main_folder, 'partial_weights'))
 
         self.log_writer = SummaryWriter(
             os.path.join(self.data_path, self.mode, 'logs'))
@@ -80,11 +88,18 @@ class JumplegAgent:
         self.iteration_counter = 0
         self.random_episode = 1280
 
+        self.test_points = []
+        self.rb_dump_it = 100 if self.mode == 'train' else 10
+
+        if self.mode == 'test':
+            self.test_points = np.loadtxt(
+                os.environ["LOCOSIM_DIR"] + "/robot_control/jumpleg_rl/src/"+'test_points.txt')
+
         # restore train
         if self.restore_train:
             # del self.replayBuffer
             self.replayBuffer = joblib.load(os.path.join(
-                self.data_path, self.mode, 'ReplayBuffer_train.joblib'))
+                self.main_folder, 'ReplayBuffer_train.joblib'))
             self.iteration_counter = self.replayBuffer.get_number_episodes()
 
         # if mode is only train the model weights are not restore
@@ -134,8 +149,10 @@ class JumplegAgent:
             self.targetCoM = self.generate_target()
 
         elif self.mode == 'test':
-            # TODO Generate test semisphere
-            pass
+            if self.iteration_counter < self.test_points.shape[0]:
+                self.targetCoM = self.test_points[self.iteration_counter]
+            else:  # send stop signal
+                self.targetCoM = [0, 0, -1]
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -236,14 +253,13 @@ class JumplegAgent:
                         f"Saving RL agent networks, epoch {net_iteration_counter}")
 
                     self.policy.save(os.path.join(
-                        self.data_path, self.mode, 'partial_weights'), str(net_iteration_counter))
+                        self.main_folder, 'partial_weights'), str(net_iteration_counter))
 
                 self.policy.save(self.data_path, 'latest')
 
-        if (self.iteration_counter + 1) % 100 == 0:
-
+        if (self.iteration_counter + 1) % self.rb_dump_it == 0:
             self.replayBuffer.dump(os.path.join(
-                self.data_path, self.mode), self.mode)
+                self.main_folder), self.mode)
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
