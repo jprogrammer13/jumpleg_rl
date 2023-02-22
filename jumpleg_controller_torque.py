@@ -420,7 +420,7 @@ class JumpLegController(BaseControllerFixed):
                                                        self.cost.weights[4] * self.cost.joint_torques)
 
         # unil  friction sing jointrange torques target
-        msg.next_state = np.concatenate((self.com, self.comd, self.q,  self.target_CoM))
+        msg.next_state = np.concatenate((self.q, self.qd,  self.target_CoM))
 
         msg.reward = reward
         msg.done = done
@@ -469,7 +469,7 @@ def talker(p):
         p.ros_pub = RosPub("jumpleg")
         p.robot = getRobotModel("jumpleg")
     else:
-        additional_args=['gui:=true']
+        additional_args=['gui:=false']
         p.startSimulator("jump_platform.world", additional_args=additional_args)
         # p.startSimulator()
         p.loadModelAndPublishers()
@@ -547,7 +547,7 @@ def talker(p):
                     p.trustPhaseFlag = True
 
                 # Ask for torque value
-                state = np.concatenate((p.com, p.comd, p.q, p.target_CoM))
+                state = np.concatenate((p.q, p.qd, p.target_CoM))
                 action = p.action_service(state).action
                 #print(f"Actor action with torques:\n {action}\n")
 
