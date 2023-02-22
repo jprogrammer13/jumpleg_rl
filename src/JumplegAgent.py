@@ -236,10 +236,10 @@ class JumplegAgent:
         }
 
         if self.mode == 'train':
-            if self.iteration_counter > self.random_episode:
+            if self.real_episode_counter > self.random_episode:
                 if req.done:
                     self.policy.train(self.replayBuffer, self.batch_size)
-                    net_iteration_counter = self.iteration_counter - self.random_episode
+                    net_iteration_counter = self.real_episode_counter - self.random_episode
 
                     if (net_iteration_counter + 1) % 1000 == 0:
 
@@ -252,7 +252,7 @@ class JumplegAgent:
                     self.policy.save(self.data_path, 'latest')
 
         if req.done:
-            if (self.iteration_counter + 1) % self.rb_dump_it == 0:
+            if (self.real_episode_counter + 1) % self.rb_dump_it == 0:
                 self.replayBuffer.dump(os.path.join(
                     self.main_folder), self.mode)
 
