@@ -65,10 +65,10 @@ class JumplegAgent:
         self.action_dim = 5
 
         # Action limitations
-        self.max_time = 1.2
+        self.max_time = 0.5
         self.min_time = 0.2
-        self.max_velocity = 4
-        self.min_velocity = 0.3
+        self.max_velocity = 2.5
+        self.min_velocity = 0.5
         self.max_extension = 0.32
         self.min_extension = 0.15
         self.min_phi = np.pi/4.
