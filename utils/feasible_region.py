@@ -24,7 +24,7 @@ norm = matplotlib.colors.Normalize(vmin=0, vmax=max_error)
 cmap2 = matplotlib.cm.cool
 norm2 = matplotlib.colors.Normalize(vmin=0, vmax=err_treshold)
 
-rb = joblib.load('../runs/test/model_latest/ReplayBuffer_test.joblib')
+rb = joblib.load('../runs_small/test/model_latest/ReplayBuffer_test.joblib')
 e = rb.mem_size
 
 
