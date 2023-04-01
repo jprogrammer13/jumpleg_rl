@@ -83,13 +83,13 @@ class JumplegAgent:
         self.exp_r = [0., 0.65]
 
         # RL
-        self.layer_dim = 256
+        self.layer_dim = 128
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 256
+        self.batch_size = 128
         self.exploration_noise = 0.4
 
         self.max_episode_target = 1
