@@ -8,8 +8,9 @@ class Critic(nn.Module):
 
         # Q1 critic    
         self.q1_fc1 = nn.Linear(state_dim+action_dim, layer_dim)
-        self.q1_fc2 = nn.Linear(layer_dim,layer_dim)
-        self.q1_fc3 = nn.Linear(layer_dim, 1)
+        self.q1_fc2 = nn.Linear(layer_dim,2*layer_dim)
+        self.q1_fc3 = nn.Linear(2*layer_dim, layer_dim)
+        self.q1_fc4 = nn.Linear(layer_dim, 1)
 
         # Q2 critic
         # self.q2_fc1 = nn.Linear(state_dim+action_dim, layer_dim)
@@ -23,7 +24,8 @@ class Critic(nn.Module):
 
         q1 = self.relu(self.q1_fc1(sa_cat))
         q1 = self.relu(self.q1_fc2(q1))
-        q1 = self.q1_fc3(q1)
+        q1 = self.relu(self.q1_fc3(q1))
+        q1 = self.q1_fc4(q1)
         #
         # q2 = self.relu(self.q2_fc1(sa_cat))
         # q2 = self.relu(self.q2_fc2(q2))
