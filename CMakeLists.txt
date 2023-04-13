@@ -60,6 +60,7 @@ add_service_files(
   get_action.srv
   get_target.srv
   set_reward.srv
+  set_reward_original.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -163,10 +164,14 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
   src/JumplegAgent.py
+  src/JumplegAgentTorque.py
   src/ReplayBuffer.py
+  src/ReplayBufferOriginal.py
   src/Actor.py
   src/Critic.py
+  src/CriticOriginal.py
   src/TD3.py
+  src/TD3Original.py
   src/utils.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
