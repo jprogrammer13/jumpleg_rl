@@ -250,7 +250,10 @@ class JumplegAgent:
             'Joint torque', req.joint_torques, self.iteration_counter)
         self.log_writer.add_scalar(
             'Error liftoff vel', req.error_vel_liftoff, self.iteration_counter)
-
+        self.log_writer.add_scalar(
+            'Unfeasible vertical velocity', req.unfeasible_vertical_velocity, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Touchdown penality', req.no_touchdown, self.iteration_counter)
         rospy.loginfo(
             f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
         rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
