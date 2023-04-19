@@ -66,11 +66,11 @@ class JumplegAgent:
 
         # Action limitations
         self.max_time = 1
-        self.min_time = 0.2
+        self.min_time = 0.1
         self.max_velocity = 3
-        self.min_velocity = 0.2
+        self.min_velocity = 0.1
         self.max_extension = 0.32
-        self.min_extension = 0.15
+        self.min_extension = 0.25
         self.min_phi = np.pi/4.
         self.min_phi_d = np.pi/6.
 
@@ -83,16 +83,16 @@ class JumplegAgent:
         self.exp_r = [0., 0.65]
 
         # RL
-        self.layer_dim = 128
+        self.layer_dim = 256
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 128
+        self.batch_size = 256
         self.exploration_noise = 0.4
 
-        self.max_episode_target = 1
+        self.max_episode_target = 5
         self.episode_counter = 0
         self.iteration_counter = 0
         self.random_episode = 1280
@@ -250,6 +250,8 @@ class JumplegAgent:
             'Joint torque', req.joint_torques, self.iteration_counter)
         self.log_writer.add_scalar(
             'Error liftoff vel', req.error_vel_liftoff, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Error liftoff pos', req.error_pos_liftoff, self.iteration_counter)
         self.log_writer.add_scalar(
             'Unfeasible vertical velocity', req.unfeasible_vertical_velocity, self.iteration_counter)
         self.log_writer.add_scalar(
