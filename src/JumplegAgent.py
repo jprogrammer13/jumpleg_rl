@@ -66,8 +66,8 @@ class JumplegAgent:
 
         # Action limitations
         self.max_time = 1
-        self.min_time = 0.1
-        self.max_velocity = 3
+        self.min_time = 0.2
+        self.max_velocity = 4
         self.min_velocity = 0.1
         self.max_extension = 0.32
         self.min_extension = 0.25
@@ -256,6 +256,8 @@ class JumplegAgent:
             'Unfeasible vertical velocity', req.unfeasible_vertical_velocity, self.iteration_counter)
         self.log_writer.add_scalar(
             'Touchdown penality', req.no_touchdown, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Total cost', req.total_cost, self.iteration_counter)
         rospy.loginfo(
             f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
         rospy.loginfo(f"Episode transition:\n {self.episode_transition}")

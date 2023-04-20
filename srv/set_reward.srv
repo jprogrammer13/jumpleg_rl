@@ -10,5 +10,6 @@ float64 error_vel_liftoff
 float64 error_pos_liftoff
 float64 unfeasible_vertical_velocity
 float64 no_touchdown
+float64 total_cost
 ---
 float64 ack

@@ -26,7 +26,7 @@ class TD3(object):
         policy_freq=2
     ):
         self.log_writer = log_writer
-        self.lr = 3e-4
+        self.lr = 5e-4
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading TD3 on {self.device}")
