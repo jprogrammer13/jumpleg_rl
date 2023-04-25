@@ -285,10 +285,10 @@ class JumplegAgent:
                 if (net_iteration_counter + 1) % 1000 == 0:
 
                     rospy.loginfo(
-                        f"Saving RL agent networks, epoch {net_iteration_counter}")
+                        f"Saving RL agent networks, epoch {net_iteration_counter+1}")
 
                     self.policy.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(net_iteration_counter))
+                        self.main_folder, 'partial_weights'), str(net_iteration_counter+1))
 
                 self.policy.save(self.data_path, 'latest')
 
