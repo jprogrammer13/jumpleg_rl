@@ -162,6 +162,8 @@ class JumplegAgent:
                 self.targetCoM = self.test_points[self.iteration_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
+                # dump replay buffer
+                self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
