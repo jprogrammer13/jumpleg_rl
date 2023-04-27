@@ -65,7 +65,7 @@ class JumplegAgent:
         self.action_dim = 3
 
         # Action limitations
-        self.max_torqe = 3
+        self.max_torqe = 8
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
@@ -73,16 +73,16 @@ class JumplegAgent:
         self.exp_r = [0., 0.65]
 
         # RL
-        self.layer_dim = 128
+        self.layer_dim = 256
 
         self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 128
+        self.batch_size = 256
         self.exploration_noise = 0.4
 
-        self.max_episode_target = 1
+        self.max_episode_target = 5
         self.episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
@@ -154,6 +154,7 @@ class JumplegAgent:
                 self.targetCoM = self.test_points[self.iteration_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
+                self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -244,10 +245,10 @@ class JumplegAgent:
                     if (net_iteration_counter + 1) % 1000 == 0:
 
                         rospy.loginfo(
-                            f"Saving RL agent networks, epoch {net_iteration_counter}")
+                            f"Saving RL agent networks, epoch {net_iteration_counter+ 1}")
 
                         self.policy.save(os.path.join(
-                            self.main_folder, 'partial_weights'), str(net_iteration_counter))
+                            self.main_folder, 'partial_weights'), str(net_iteration_counter + 1))
 
                     self.policy.save(self.data_path, 'latest')
 
