@@ -80,13 +80,13 @@ class JumplegAgent:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 256
-        self.exploration_noise = 0.4
+        self.exploration_noise = 0.1
 
         self.max_episode_target = 5
         self.episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
-        self.random_episode = 1280
+        self.random_episode = 10
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
