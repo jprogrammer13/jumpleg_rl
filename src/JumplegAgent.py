@@ -131,7 +131,8 @@ class JumplegAgent:
             "state": None,
             "action": None,
             "next_state": None,
-            "reward": None
+            "reward": None,
+            "done": 1
         }
 
         self.targetCoM = self.generate_target()
@@ -267,14 +268,16 @@ class JumplegAgent:
         self.replayBuffer.store(self.episode_transition['state'],
                                 self.episode_transition['action'],
                                 self.episode_transition['next_state'],
-                                self.episode_transition['reward'])
+                                self.episode_transition['reward'],
+                                self.episode_transition['done'])
 
         # reset the episode transition
         self.episode_transition = {
             "state": None,
             "action": None,
             "next_state": None,
-            "reward": None
+            "reward": None,
+            "done": 1
         }
 
         if self.mode == 'train':

@@ -3,6 +3,7 @@ import rospy
 import torch
 import torch.nn as nn
 import os
+import time
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 import copy
@@ -26,7 +27,7 @@ class TD3(object):
         policy_freq=2
     ):
         self.log_writer = log_writer
-        self.lr = 5e-4
+        self.lr = 3e-4
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading TD3 on {self.device}")
@@ -45,35 +46,45 @@ class TD3(object):
         self.policy_noise = policy_noise
         self.noise_clip = noise_clip
         self.policy_freq = policy_freq
-
+        self.loss_func = nn.MSELoss()
         self.total_it = 0
 
     def select_action(self, state):
+        start_t = time.time()
         self.actor.eval()
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
-        return self.actor(state).cpu().data.numpy().flatten()
+        action =  self.actor(state).cpu().data.numpy().flatten()
+        ex_t = time.time() - start_t
+        rospy.loginfo(f'Action calculated in {ex_t} s')
+        return action
 
     def train(self, replay_buffer, batch_size=256):
         self.total_it += 1
 
-        state, action, next_state, reward = replay_buffer.sample(batch_size)
+        state, action, next_state, reward, done = replay_buffer.sample(batch_size)
+
         self.actor.train()
+        self.critic.train()
         with torch.no_grad():
             noise = (torch.randn_like(action) *
                      self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-            # This becouse we want to have an action {-1,1} to scale after
             next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
 
-            target_Q = reward  # + not_done * self.discount * target_Q
-
+            # Compute the target Q value
+            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q = torch.min(target_Q1, target_Q2)
+            target_Q = reward + (1-done) * self.discount * target_Q
+            # print('target_Q', target_Q)
+            
         # Get the current Q estimates
-        current_Q = self.critic(state, action)
+        current_Q1, current_Q2 = self.critic(state, action)
 
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q, target_Q)
+        critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)
+        # print('critc loss', critic_loss.item())
 
-        self.log_writer.add_scalar("Critic loss", critic_loss, self.total_it)
+        self.log_writer.add_scalar("Critic loss", critic_loss.item(), self.total_it)
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
@@ -85,9 +96,10 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor loss
-            actor_loss = - self.critic(state, self.actor(state)).mean()
+            actor_loss = - self.critic.Q1(state, self.actor(state)).mean()
+            # print('actor loss',actor_loss.item())
             rospy.loginfo("Updating the networks")
-            self.log_writer.add_scalar("Actor loss", actor_loss, self.total_it)
+            self.log_writer.add_scalar("Actor loss", actor_loss.item(), self.total_it)
 
             # Optimize the actor
             self.actor_optimizer.zero_grad()
@@ -118,13 +130,13 @@ class TD3(object):
         self.total_it = iteration
         
         self.critic.load_state_dict(torch.load(
-            os.path.join(path, f"TD3_{name}_critic.pt"), map_location=self.device))
+            os.path.join(path, f"TD3_{name}_critic.pt")))
         self.critic_optimizer.load_state_dict(
-            torch.load(os.path.join(path, f"TD3_{name}_critic_optimizer.pt"), map_location=self.device))
+            torch.load(os.path.join(path, f"TD3_{name}_critic_optimizer.pt")))
         self.critic_target = copy.deepcopy(self.critic)
 
         self.actor.load_state_dict(torch.load(
-            os.path.join(path, f"TD3_{name}_actor.pt"), map_location=self.device))
+            os.path.join(path, f"TD3_{name}_actor.pt")))
         self.actor_optimizer.load_state_dict(
-            torch.load(os.path.join(path, f"TD3_{name}_actor_optimizer.pt"), map_location=self.device))
+            torch.load(os.path.join(path, f"TD3_{name}_actor_optimizer.pt")))
         self.actor_target = copy.deepcopy(self.actor)

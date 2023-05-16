@@ -7,7 +7,7 @@ import numpy as np
 import os
 import argparse
 
-from ReplayBufferOriginal import ReplayBuffer
+from jumpleg_rl.src.ReplayBuffer import ReplayBuffer
 from TD3Original import TD3
 import time
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ from std_msgs.msg import Float32
 from torch.utils.tensorboard import SummaryWriter
 
 
-class JumplegAgent:
+class JumplegAgentTorque:
     def __init__(self, _mode, _data_path, _model_name, _restore_train):
 
         self.node_name = "JumplegAgentTorque"
@@ -86,7 +86,8 @@ class JumplegAgent:
         self.episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
-        self.random_episode = 10
+        # self.random_episode = 25600
+        self.random_episode = 12000
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -150,7 +151,7 @@ class JumplegAgent:
             self.targetCoM = self.generate_target()
 
         elif self.mode == 'test':
-            if self.iteration_counter < self.test_points.shape[0]:
+            if self.episode_counter < self.test_points.shape[0]:
                 self.targetCoM = self.test_points[self.iteration_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
@@ -203,22 +204,23 @@ class JumplegAgent:
 
         if req.done:
             self.log_writer.add_scalar(
-                'Reward', req.reward, self.real_episode_counter)
+                'Reward', req.reward, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Target Cost(Distance)', req.target_cost, self.real_episode_counter)
+                'Target Cost(Distance)', req.target_cost, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Unilateral', req.unilateral, self.real_episode_counter)
+                'Unilateral', req.unilateral, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Friction', req.friction, self.real_episode_counter)
+                'Friction', req.friction, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Singularity', req.singularity, self.real_episode_counter)
+                'Singularity', req.singularity, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Joint range', req.joint_range, self.real_episode_counter)
+                'Joint range', req.joint_range, self.iteration_counter)
             self.log_writer.add_scalar(
-                'Joint torque', req.joint_torques, self.real_episode_counter)
+                'Joint torque', req.joint_torques, self.iteration_counter)
             rospy.loginfo(
-                f"Reward[it {self.real_episode_counter}]: {self.episode_transition['reward']}")
+                f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
             rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
+
 
         self.replayBuffer.store(self.episode_transition['state'],
                                 self.episode_transition['action'],
@@ -237,10 +239,12 @@ class JumplegAgent:
         }
 
         if self.mode == 'train':
-            if self.real_episode_counter > self.random_episode:
+            if self.iteration_counter > self.random_episode:
+                # Train immediatly
+                self.policy.train(self.replayBuffer, self.batch_size)
+
                 if req.done:
-                    self.policy.train(self.replayBuffer, self.batch_size)
-                    net_iteration_counter = self.real_episode_counter - self.random_episode
+                    net_iteration_counter = self.iteration_counter - self.random_episode
 
                     if (net_iteration_counter + 1) % 1000 == 0:
 
@@ -252,18 +256,19 @@ class JumplegAgent:
 
                     self.policy.save(self.data_path, 'latest')
 
-        if req.done:
-            if (self.real_episode_counter + 1) % self.rb_dump_it == 0:
-                self.replayBuffer.dump(os.path.join(
-                    self.main_folder), self.mode)
-
         resp = set_reward_originalResponse()
         resp.ack = np.array(req.reward)
 
         if req.done:
+
             # episode is done only when done is 1
             self.episode_counter += 1
             self.real_episode_counter += 1
+            print(self.iteration_counter, self.real_episode_counter)
+
+            if (self.iteration_counter + 1) % self.rb_dump_it == 0:
+                self.replayBuffer.dump(os.path.join(
+                    self.main_folder), self.mode)
 
         self.iteration_counter += 1
 
@@ -283,5 +288,5 @@ if __name__ == '__main__':
 
     args = parser.parse_args(rospy.myargv()[1:])
 
-    jumplegAgent = JumplegAgent(
+    jumplegAgentTorque = JumplegAgentTorque(
         args.mode, args.data_path, args.model_name, args.restore_train)
