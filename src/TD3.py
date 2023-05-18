@@ -53,7 +53,7 @@ class TD3(object):
         start_t = time.time()
         self.actor.eval()
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
-        action =  self.actor(state).cpu().data.numpy().flatten()
+        action = self.actor(state).cpu().data.numpy().flatten()
         ex_t = time.time() - start_t
         rospy.loginfo(f'Action calculated in {ex_t} s')
         return action
@@ -63,22 +63,32 @@ class TD3(object):
 
         state, action, next_state, reward, done = replay_buffer.sample(batch_size)
 
+        state = torch.nan_to_num(state)
+        action = torch.nan_to_num(action)
+        next_state = torch.nan_to_num(next_state)
+        reward = torch.nan_to_num(reward)
+
         self.actor.train()
         self.critic.train()
         with torch.no_grad():
             noise = (torch.randn_like(action) *
                      self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-            next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
+            next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
 
             # Compute the target Q value
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
+            target_Q1 = torch.nan_to_num(target_Q1)
+            target_Q2 = torch.nan_to_num(target_Q2)
+
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + (1-done) * self.discount * target_Q
             # print('target_Q', target_Q)
             
         # Get the current Q estimates
-        current_Q1, current_Q2 = self.critic(state, action)
+        current_Q1, current_Q2 =  self.critic(state, action)
+        current_Q1 = torch.nan_to_num(current_Q1)
+        current_Q2 = torch.nan_to_num(current_Q2)
 
         # Compute critic loss
         critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)

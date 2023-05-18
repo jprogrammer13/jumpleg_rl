@@ -7,8 +7,8 @@ import numpy as np
 import os
 import argparse
 
-from jumpleg_rl.src.ReplayBuffer import ReplayBuffer
-from TD3Original import TD3
+from ReplayBuffer import ReplayBuffer
+from TD3 import TD3
 import time
 import matplotlib.pyplot as plt
 from utils import *
@@ -86,8 +86,7 @@ class JumplegAgentTorque:
         self.episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
-        # self.random_episode = 25600
-        self.random_episode = 12000
+        self.random_episode = 25600
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -151,8 +150,8 @@ class JumplegAgentTorque:
             self.targetCoM = self.generate_target()
 
         elif self.mode == 'test':
-            if self.episode_counter < self.test_points.shape[0]:
-                self.targetCoM = self.test_points[self.iteration_counter]
+            if self.real_episode_counter < self.test_points.shape[0]:
+                self.targetCoM = self.test_points[self.real_episode_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
                 self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
