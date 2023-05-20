@@ -20,12 +20,14 @@ class TD3(object):
         state_dim,
         action_dim,
         layer_dim,
+        double_critic=True,
         discount=0.99,
         tau=0.005,
         policy_noise=0.2,
         noise_clip=0.5,
         policy_freq=2
     ):
+        self.double_critic = double_critic
         self.log_writer = log_writer
         self.lr = 3e-4
         self.device = torch.device(
@@ -36,7 +38,7 @@ class TD3(object):
         self.actor_optimizer = torch.optim.Adam(
             self.actor.parameters(), lr=self.lr)
 
-        self.critic = Critic(state_dim, action_dim, layer_dim).to(self.device)
+        self.critic = Critic(state_dim, action_dim, double_critic, layer_dim).to(self.device)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = torch.optim.Adam(
             self.critic.parameters(), lr=self.lr)
@@ -70,29 +72,40 @@ class TD3(object):
 
         self.actor.train()
         self.critic.train()
-        with torch.no_grad():
-            noise = (torch.randn_like(action) *
-                     self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
+        if self.double_critic:
+            with torch.no_grad():
+                noise = (torch.randn_like(action) *
+                        self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-            next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
+                next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
 
-            # Compute the target Q value
-            target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
-            target_Q1 = torch.nan_to_num(target_Q1)
-            target_Q2 = torch.nan_to_num(target_Q2)
+                # Compute the target Q value
+                target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
+                target_Q1 = torch.nan_to_num(target_Q1)
+                target_Q2 = torch.nan_to_num(target_Q2)
 
-            target_Q = torch.min(target_Q1, target_Q2)
-            target_Q = reward + (1-done) * self.discount * target_Q
-            # print('target_Q', target_Q)
+                target_Q = torch.min(target_Q1, target_Q2)
+                target_Q = reward + (1-done) * self.discount * target_Q
+                # print('target_Q', target_Q)
             
-        # Get the current Q estimates
-        current_Q1, current_Q2 =  self.critic(state, action)
-        current_Q1 = torch.nan_to_num(current_Q1)
-        current_Q2 = torch.nan_to_num(current_Q2)
+                # Get the current Q estimates
+            current_Q1, current_Q2 =  self.critic(state, action)
+            current_Q1 = torch.nan_to_num(current_Q1)
+            current_Q2 = torch.nan_to_num(current_Q2)
 
-        # Compute critic loss
-        critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)
-        # print('critc loss', critic_loss.item())
+            # Compute critic loss
+            critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)
+
+        else:
+            with torch.no_grad():
+                target_Q = reward
+            
+            current_Q1 =  self.critic(state, action)
+            current_Q1 = torch.nan_to_num(current_Q1)
+
+            # Compute critic loss
+            critic_loss = self.loss_func(current_Q1, target_Q)
+            
 
         self.log_writer.add_scalar("Critic loss", critic_loss.item(), self.total_it)
 
