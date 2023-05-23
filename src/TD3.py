@@ -25,11 +25,12 @@ class TD3(object):
         tau=0.005,
         policy_noise=0.2,
         noise_clip=0.5,
-        policy_freq=2
+        policy_freq=2,
+        lr = 3e-4
     ):
         self.double_critic = double_critic
         self.log_writer = log_writer
-        self.lr = 3e-4
+        self.lr = lr
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         print(f"Loading TD3 on {self.device}")
@@ -57,7 +58,7 @@ class TD3(object):
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
         action = self.actor(state).cpu().data.numpy().flatten()
         ex_t = time.time() - start_t
-        rospy.loginfo(f'Action calculated in {ex_t} s')
+        # rospy.loginfo(f'Action calculated in {ex_t} s')
         return action
 
     def train(self, replay_buffer, batch_size=256):
@@ -121,7 +122,7 @@ class TD3(object):
             # Compute actor loss
             actor_loss = - self.critic.Q1(state, self.actor(state)).mean()
             # print('actor loss',actor_loss.item())
-            rospy.loginfo("Updating the networks")
+            # rospy.loginfo("Updating the networks")
             self.log_writer.add_scalar("Actor loss", actor_loss.item(), self.total_it)
 
             # Optimize the actor

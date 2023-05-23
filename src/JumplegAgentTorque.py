@@ -61,11 +61,11 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 15
+        self.state_dim = 18
         self.action_dim = 3
 
         # Action limitations
-        self.max_torqe = 8
+        self.max_torqe = np.pi
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
