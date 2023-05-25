@@ -68,7 +68,7 @@ class JumplegAgentTorque:
         self.N = 200
 
         # Action limitations
-        self.max_torqe = np.pi
+        self.max_torqe = np.array([np.pi/2, np.pi/2, np.pi])
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
@@ -83,9 +83,9 @@ class JumplegAgentTorque:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 128
-        self.exploration_noise = 0.3
+        self.exploration_noise = 0.1
 
-        self.max_episode_target = 5
+        self.max_episode_target = 10
         self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
@@ -193,7 +193,7 @@ class JumplegAgentTorque:
 
         self.episode_transition['action'] = action
         
-        action = (self.q_0+(action*self.max_torqe)).clip(-self.max_torqe,self.max_torqe)
+        action = (self.q_0+(action*self.max_torqe)).clip(-np.pi,np.pi)
 
         resp = get_actionResponse()
         resp.action = action
