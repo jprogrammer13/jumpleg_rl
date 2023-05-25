@@ -20,6 +20,7 @@ class JumplegAgentTorque:
     def __init__(self, _mode, _data_path, _model_name, _restore_train):
 
         self.node_name = "JumplegAgentTorque"
+        self.q_0 = np.array([-0.24010055475883635,0.7092776153747403,-1.4185292429491714])
 
         self.mode = _mode
         self.data_path = _data_path
@@ -61,8 +62,10 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 18
+        self.state_dim = 27
         self.action_dim = 3
+
+        self.N = 200
 
         # Action limitations
         self.max_torqe = np.pi
@@ -79,13 +82,14 @@ class JumplegAgentTorque:
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 256
-        self.exploration_noise = 0.1
+        self.batch_size = 128
+        self.exploration_noise = 0.3
 
         self.max_episode_target = 5
-        self.episode_counter = 0
+        self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
+
         self.random_episode = 25600
 
         self.test_points = []
@@ -157,8 +161,8 @@ class JumplegAgentTorque:
                 self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
 
         elif self.mode == 'train':
-            if self.episode_counter > self.max_episode_target:
-                self.episode_counter = 0
+            if self.target_episode_counter > self.max_episode_target:
+                self.target_episode_counter = 0
                 self.targetCoM = self.generate_target()
 
         resp.target_CoM = self.targetCoM
@@ -189,7 +193,7 @@ class JumplegAgentTorque:
 
         self.episode_transition['action'] = action
         
-        action = action*self.max_torqe
+        action = (self.q_0+(action*self.max_torqe)).clip(-self.max_torqe,self.max_torqe)
 
         resp = get_actionResponse()
         resp.action = action
@@ -239,8 +243,13 @@ class JumplegAgentTorque:
 
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
-                # Train immediatly
-                self.policy.train(self.replayBuffer, self.batch_size)
+                # If is time to update
+
+                if self.iteration_counter % self.N == 0:
+
+                    # Train for N time
+                    for i in range(self.N):
+                        self.policy.train(self.replayBuffer, self.batch_size)
 
                 if req.done:
                     net_iteration_counter = self.iteration_counter - self.random_episode
@@ -261,7 +270,7 @@ class JumplegAgentTorque:
         if req.done:
 
             # episode is done only when done is 1
-            self.episode_counter += 1
+            self.target_episode_counter += 1
             self.real_episode_counter += 1
             print(self.iteration_counter, self.real_episode_counter)
 
