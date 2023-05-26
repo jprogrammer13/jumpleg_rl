@@ -20,7 +20,6 @@ class JumplegAgentTorque:
     def __init__(self, _mode, _data_path, _model_name, _restore_train):
 
         self.node_name = "JumplegAgentTorque"
-        self.q_0 = np.array([-0.24010055475883635,0.7092776153747403,-1.4185292429491714])
 
         self.mode = _mode
         self.data_path = _data_path
@@ -62,13 +61,13 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 27
+        self.state_dim = 36
         self.action_dim = 3
 
         self.N = 200
 
         # Action limitations
-        self.max_torqe = np.array([np.pi/2, np.pi/2, np.pi])
+        self.max_torque = np.array([np.pi/2, np.pi/4, np.pi/2])
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
@@ -83,14 +82,14 @@ class JumplegAgentTorque:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 128
-        self.exploration_noise = 0.1
+        self.exploration_noise = 0.2
 
-        self.max_episode_target = 10
+        self.max_episode_target = 5
         self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
 
-        self.random_episode = 25600
+        self.random_episode = self.N*500
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -135,7 +134,7 @@ class JumplegAgentTorque:
         # Start ROS node
 
         rospy.init_node(self.node_name)
-        rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
+        rospy.loginfo(f"JumplegAgent is listening: {self.mode}")
 
         rospy.spin()
 
@@ -180,6 +179,7 @@ class JumplegAgentTorque:
         elif self.mode == 'train':
             # Check if we have enought iteration to start the training
             if self.iteration_counter >= self.random_episode:
+                #print("STARTED WITH GAUSSIAN", self.iteration_counter)
                 # Get action from policy and apply exploration noise
                 action = (
                     self.policy.select_action(state) +
@@ -188,13 +188,12 @@ class JumplegAgentTorque:
                         size=self.action_dim)
                 ).clip(-1, 1)
             else:
+                #print("STARTED WITH NORMAL", self.iteration_counter)
                 # If we don't have enought iteration, genreate random action
                 action = np.random.uniform(-1, 1, self.action_dim)
 
         self.episode_transition['action'] = action
-        
-        action = (self.q_0+(action*self.max_torqe)).clip(-np.pi,np.pi)
-
+        action = (action*self.max_torque)#.clip(-np.pi,np.pi)
         resp = get_actionResponse()
         resp.action = action
         return resp
