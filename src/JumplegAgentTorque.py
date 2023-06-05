@@ -61,13 +61,13 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 36
+        self.state_dim = 40
         self.action_dim = 3
 
         self.N = 200
 
         # Action limitations
-        self.max_torque = np.array([np.pi/2, np.pi/4, np.pi/2])
+        self.max_q = np.array([np.pi/2, np.pi/4, np.pi/2])
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
@@ -81,7 +81,7 @@ class JumplegAgentTorque:
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 128
+        self.batch_size = 256
         self.exploration_noise = 0.2
 
         self.max_episode_target = 5
@@ -193,7 +193,7 @@ class JumplegAgentTorque:
                 action = np.random.uniform(-1, 1, self.action_dim)
 
         self.episode_transition['action'] = action
-        action = (action*self.max_torque)#.clip(-np.pi,np.pi)
+        action = (action*self.max_q)#.clip(-np.pi,np.pi)
         resp = get_actionResponse()
         resp.action = action
         return resp
