@@ -56,6 +56,8 @@ class TD3(object):
         start_t = time.time()
         self.actor.eval()
         state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
+        # normalize state
+        # state = nn.functional.normalize(state, 2)
         action = self.actor(state).cpu().data.numpy().flatten()
         ex_t = time.time() - start_t
         # rospy.loginfo(f'Action calculated in {ex_t} s')
@@ -66,43 +68,49 @@ class TD3(object):
 
         state, action, next_state, reward, done = replay_buffer.sample(batch_size)
 
-        state = torch.nan_to_num(state)
-        action = torch.nan_to_num(action)
-        next_state = torch.nan_to_num(next_state)
-        reward = torch.nan_to_num(reward)
+        # normalize network input
+        # state = nn.functional.normalize(state,2)
+        # action = nn.functional.normalize(action,2)
+        # next_state = nn.functional.normalize(next_state,2)
 
         self.actor.train()
         self.critic.train()
+
         if self.double_critic:
             with torch.no_grad():
                 noise = (torch.randn_like(action) *
                         self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
-                next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
+                # next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
+                next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
+                # normalize next action
+                # next_action = nn.functional.normalize(next_action, 2)
 
                 # Compute the target Q value
                 target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
-                target_Q1 = torch.nan_to_num(target_Q1)
-                target_Q2 = torch.nan_to_num(target_Q2)
+                # target_Q1 = torch.nan_to_num(target_Q1)
+                # target_Q2 = torch.nan_to_num(target_Q2)
 
                 target_Q = torch.min(target_Q1, target_Q2)
                 target_Q = reward + (1-done) * self.discount * target_Q
+                # print(target_Q)
                 # print('target_Q', target_Q)
             
                 # Get the current Q estimates
             current_Q1, current_Q2 =  self.critic(state, action)
-            current_Q1 = torch.nan_to_num(current_Q1)
-            current_Q2 = torch.nan_to_num(current_Q2)
+            # current_Q1 = torch.nan_to_num(current_Q1)
+            # current_Q2 = torch.nan_to_num(current_Q2)
 
             # Compute critic loss
             critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)
+            # critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
 
         else:
             with torch.no_grad():
                 target_Q = reward
             
             current_Q1 =  self.critic(state, action)
-            current_Q1 = torch.nan_to_num(current_Q1)
+            # current_Q1 = torch.nan_to_num(current_Q1)
 
             # Compute critic loss
             critic_loss = self.loss_func(current_Q1, target_Q)
@@ -113,6 +121,8 @@ class TD3(object):
         # Optimize the critic
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+
+        # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), 5)
         self.critic_optimizer.step()
 
         # Delayed policy updates
@@ -120,6 +130,8 @@ class TD3(object):
         if self.total_it % self.policy_freq == 0:
 
             # Compute actor loss
+            
+            # actor_loss = - self.critic.Q1(state, nn.functional.normalize(self.actor(state),2)).mean()
             actor_loss = - self.critic.Q1(state, self.actor(state)).mean()
             # print('actor loss',actor_loss.item())
             # rospy.loginfo("Updating the networks")
@@ -128,6 +140,7 @@ class TD3(object):
             # Optimize the actor
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
+            # torch.nn.utils.clip_grad_norm_(self.actor.parameters(), 5)
             self.actor_optimizer.step()
 
             # Update the frozen target models

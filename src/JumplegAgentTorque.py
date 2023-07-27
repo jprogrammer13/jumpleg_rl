@@ -61,10 +61,10 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 40
+        self.state_dim = 12
         self.action_dim = 3
 
-        self.N = 200
+        self.N = 50
 
         # Action limitations
         self.max_q = np.array([np.pi/2, np.pi/4, np.pi/2])
@@ -89,7 +89,7 @@ class JumplegAgentTorque:
         self.real_episode_counter = 0
         self.iteration_counter = 0
 
-        self.random_episode = self.N*500
+        self.random_episode = self.N*150
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -147,6 +147,7 @@ class JumplegAgentTorque:
         return [-x, y, z]
 
     def get_target_handler(self, req):
+        # print('TARGET HANDLER')
         resp = get_targetResponse()
 
         if self.mode == 'inference':
@@ -169,6 +170,7 @@ class JumplegAgentTorque:
         return resp
 
     def get_action_handler(self, req):
+        # print('ACTION HANDLER')
         state = np.array(req.state)
         self.episode_transition['state'] = state
 
@@ -199,7 +201,10 @@ class JumplegAgentTorque:
         return resp
 
     def set_reward_handler(self, req):
+        # print('REWARD HANDLER')
         self.episode_transition['next_state'] = np.array(req.next_state)
+
+        # print(f"state: {self.episode_transition['state']}\nnext state: {self.episode_transition['next_state']}")
 
         self.episode_transition['reward'] = np.array(req.reward)
         self.episode_transition['done'] = np.array(req.done)
@@ -230,27 +235,19 @@ class JumplegAgentTorque:
                                 self.episode_transition['reward'],
                                 self.episode_transition['done']
                                 )
-
-        # reset the episode transition
-        self.episode_transition = {
-            "state": None,
-            "action": None,
-            "next_state": None,
-            "reward": None,
-            "done" : None
-        }
-
+        
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
+                    
                 # If is time to update
 
                 if self.iteration_counter % self.N == 0:
 
-                    # Train for N time
                     for i in range(self.N):
                         self.policy.train(self.replayBuffer, self.batch_size)
-
+                        
                 if req.done:
+
                     net_iteration_counter = self.iteration_counter - self.random_episode
 
                     if (net_iteration_counter + 1) % 1000 == 0:
@@ -278,6 +275,15 @@ class JumplegAgentTorque:
                     self.main_folder), self.mode)
 
         self.iteration_counter += 1
+
+        # reset the episode transition
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done" : None
+        }
 
         return resp
 

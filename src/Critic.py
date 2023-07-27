@@ -15,7 +15,6 @@ class Critic(nn.Module):
         self.q1_fc4 = nn.Linear(layer_dim, 1)
 
         if self.double_critic:
-
             # Q2 critic
             self.q2_fc1 = nn.Linear(state_dim+action_dim, layer_dim)
             self.q2_fc2 = nn.Linear(layer_dim,2*layer_dim)
