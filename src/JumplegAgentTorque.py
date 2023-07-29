@@ -61,7 +61,7 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 37
+        self.state_dim = 40
         self.action_dim = 3
 
         self.N = 50
@@ -85,7 +85,7 @@ class JumplegAgentTorque:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 512
-        self.exploration_noise = 0.2
+        self.exploration_noise = 0.3
 
         self.max_episode_target = 10
         self.target_episode_counter = 0
