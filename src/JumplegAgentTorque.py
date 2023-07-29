@@ -61,16 +61,17 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 12
+        self.state_dim = 37
         self.action_dim = 3
 
         self.N = 50
 
         # Action limitations
-        self.max_q = np.array([np.pi/2, np.pi/4, np.pi/2])
+        self.max_q = np.array([np.pi/2, np.pi/2, np.pi/2])
 
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
+        # TODO: scaling upper bound -> net_iteration
         self.exp_z = [0.25, 0.5]
         self.exp_r = [0., 0.65]
 
@@ -81,15 +82,16 @@ class JumplegAgentTorque:
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 256
+        self.batch_size = 512
         self.exploration_noise = 0.2
 
-        self.max_episode_target = 5
+        self.max_episode_target = 10
         self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
+        self.net_iteration_counter = 0
 
-        self.random_episode = self.N*150
+        self.random_episode = self.N*500
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -110,12 +112,13 @@ class JumplegAgentTorque:
 
             if self.restore_train:
 
-                net_iteration_counter = self.iteration_counter - self.random_episode
+                # TODO: this iteration is wrong
+                self.net_iteration_counter = self.iteration_counter - self.random_episode
 
                 # chech if TD3 was already trained
-                if net_iteration_counter > 0:
+                if self.net_iteration_counter > 0:
                     self.policy.load(
-                        self.data_path, self.model_name, net_iteration_counter)
+                        self.data_path, self.model_name, self.net_iteration_counter)
 
             else:
                 # load pre-trained TD3
@@ -242,21 +245,21 @@ class JumplegAgentTorque:
                 # If is time to update
 
                 if self.iteration_counter % self.N == 0:
-
                     for i in range(self.N):
-                        self.policy.train(self.replayBuffer, self.batch_size)
+                            self.policy.train(self.replayBuffer, self.batch_size)
+                            self.net_iteration_counter += 1
                         
                 if req.done:
+                    
+                    # net_iteration_counter = self.iteration_counter - self.random_episode
 
-                    net_iteration_counter = self.iteration_counter - self.random_episode
-
-                    if (net_iteration_counter + 1) % 1000 == 0:
+                    if (self.net_iteration_counter) % 1000 == 0:
 
                         rospy.loginfo(
-                            f"Saving RL agent networks, epoch {net_iteration_counter+ 1}")
+                            f"Saving RL agent networks, epoch {self.net_iteration_counter}")
 
                         self.policy.save(os.path.join(
-                            self.main_folder, 'partial_weights'), str(net_iteration_counter + 1))
+                            self.main_folder, 'partial_weights'), str(self.net_iteration_counter))
 
                     self.policy.save(self.data_path, 'latest')
 
