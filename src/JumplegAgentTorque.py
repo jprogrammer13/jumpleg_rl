@@ -69,9 +69,11 @@ class JumplegAgentTorque:
         # Action limitations
         self.max_q = np.array([np.pi/2, np.pi/2, np.pi/2])
 
+        # Curriculum learning (increese train domain)
+        self.curr_learning = 0.5
+
         # Domain of targetCoM
         self.exp_rho = [-np.pi, np.pi]
-        # TODO: scaling upper bound -> net_iteration
         self.exp_z = [0.25, 0.5]
         self.exp_r = [0., 0.65]
 
@@ -142,11 +144,27 @@ class JumplegAgentTorque:
         rospy.spin()
 
     def generate_target(self):
+
+        # update the train domain
+        self.exp_z = [0.25, self.curr_learning*0.5]
+        self.exp_r = [0., self.curr_learning*0.65]
+
+        print(self.exp_z)
+        print(self.exp_r)
+        print(self.curr_learning)
+
         rho = np.random.uniform(self.exp_rho[0], self.exp_rho[1])
         z = np.random.uniform(self.exp_z[0], self.exp_z[1])
         r = np.random.uniform(self.exp_r[0], self.exp_r[1])
         x = r * np.cos(rho)
         y = r * np.sin(rho)
+
+        # Update training domain while upper bound isn't reached
+        if self.curr_learning > 1:
+            self.curr_learning = 1
+        else:
+            self.curr_learning += 1e-4
+
         return [-x, y, z]
 
     def get_target_handler(self, req):
@@ -161,7 +179,8 @@ class JumplegAgentTorque:
                 self.targetCoM = self.test_points[self.real_episode_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
-                self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
+                self.replayBuffer.dump(
+                    os.path.join(self.main_folder), self.mode)
 
         elif self.mode == 'train':
             if self.target_episode_counter > self.max_episode_target:
@@ -184,7 +203,7 @@ class JumplegAgentTorque:
         elif self.mode == 'train':
             # Check if we have enought iteration to start the training
             if self.iteration_counter >= self.random_episode:
-                #print("STARTED WITH GAUSSIAN", self.iteration_counter)
+                # print("STARTED WITH GAUSSIAN", self.iteration_counter)
                 # Get action from policy and apply exploration noise
                 action = (
                     self.policy.select_action(state) +
@@ -193,12 +212,12 @@ class JumplegAgentTorque:
                         size=self.action_dim)
                 ).clip(-1, 1)
             else:
-                #print("STARTED WITH NORMAL", self.iteration_counter)
+                # print("STARTED WITH NORMAL", self.iteration_counter)
                 # If we don't have enought iteration, genreate random action
                 action = np.random.uniform(-1, 1, self.action_dim)
 
         self.episode_transition['action'] = action
-        action = (action*self.max_q)#.clip(-np.pi,np.pi)
+        action = (action*self.max_q)  # .clip(-np.pi,np.pi)
         resp = get_actionResponse()
         resp.action = action
         return resp
@@ -211,6 +230,9 @@ class JumplegAgentTorque:
 
         self.episode_transition['reward'] = np.array(req.reward)
         self.episode_transition['done'] = np.array(req.done)
+
+        if req.apex:  # overwrite action to be 0 after apex
+            self.episode_transition['action'] = np.array([0., 0., 0.])
 
         if req.done:
             self.log_writer.add_scalar(
@@ -227,10 +249,13 @@ class JumplegAgentTorque:
                 'Joint range', req.joint_range, self.iteration_counter)
             self.log_writer.add_scalar(
                 'Joint torque', req.joint_torques, self.iteration_counter)
+            self.log_writer.add_scalar(
+                'No touchdown', req.no_touchdown, self.iteration_counter)
+            self.log_writer.add_scalar(
+                'Smoothness', req.smoothness, self.iteration_counter)
             rospy.loginfo(
                 f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
             rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
-
 
         self.replayBuffer.store(self.episode_transition['state'],
                                 self.episode_transition['action'],
@@ -238,22 +263,22 @@ class JumplegAgentTorque:
                                 self.episode_transition['reward'],
                                 self.episode_transition['done']
                                 )
-        
+
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
-                    
+
                 # If is time to update
 
                 if self.iteration_counter % self.N == 0:
                     for i in range(self.N):
-                            self.policy.train(self.replayBuffer, self.batch_size)
-                            self.net_iteration_counter += 1
-                        
+                        self.policy.train(self.replayBuffer, self.batch_size)
+                        self.net_iteration_counter += 1
+
                 if req.done:
-                    
+
                     # net_iteration_counter = self.iteration_counter - self.random_episode
 
-                    if (self.net_iteration_counter) % 1000 == 0:
+                    if (self.net_iteration_counter) % 5000 == 0:
 
                         rospy.loginfo(
                             f"Saving RL agent networks, epoch {self.net_iteration_counter}")
@@ -285,7 +310,7 @@ class JumplegAgentTorque:
             "action": None,
             "next_state": None,
             "reward": None,
-            "done" : None
+            "done": None
         }
 
         return resp
