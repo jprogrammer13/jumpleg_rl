@@ -84,7 +84,7 @@ class JumplegAgentTorque:
         self.policy = TD3(self.log_writer, self.state_dim,
                           self.action_dim, self.layer_dim)
 
-        self.batch_size = 512
+        self.batch_size = 256
         self.exploration_noise = 0.3
 
         self.max_episode_target = 10
@@ -256,13 +256,23 @@ class JumplegAgentTorque:
             rospy.loginfo(
                 f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
             rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
+        
+        if self.mode == 'test':
+            if req.done: 
+                self.replayBuffer.store(self.episode_transition['state'],
+                                        self.episode_transition['action'],
+                                        self.episode_transition['next_state'],
+                                        self.episode_transition['reward'],
+                                        self.episode_transition['done']
+                                        )
+        else:
+            self.replayBuffer.store(self.episode_transition['state'],
+                                        self.episode_transition['action'],
+                                        self.episode_transition['next_state'],
+                                        self.episode_transition['reward'],
+                                        self.episode_transition['done']
+                                        )
 
-        self.replayBuffer.store(self.episode_transition['state'],
-                                self.episode_transition['action'],
-                                self.episode_transition['next_state'],
-                                self.episode_transition['reward'],
-                                self.episode_transition['done']
-                                )
 
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
