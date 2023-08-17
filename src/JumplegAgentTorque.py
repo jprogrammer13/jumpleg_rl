@@ -61,7 +61,7 @@ class JumplegAgentTorque:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
-        self.state_dim = 40
+        self.state_dim = 49
         self.action_dim = 3
 
         self.N = 50
@@ -87,7 +87,9 @@ class JumplegAgentTorque:
         self.batch_size = 256
         self.exploration_noise = 0.3
 
+        self.n_curriculum_episode = 10000
         self.max_episode_target = 10
+        self.curriculum_step = 0.5 / (self.n_curriculum_episode/self.max_episode_target)
         self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
@@ -163,7 +165,8 @@ class JumplegAgentTorque:
         if self.curr_learning > 1:
             self.curr_learning = 1
         else:
-            self.curr_learning += 1e-4
+            
+            self.curr_learning += self.curriculum_step
 
         return [-x, y, z]
 
@@ -195,6 +198,7 @@ class JumplegAgentTorque:
         # print('ACTION HANDLER')
         state = np.array(req.state)
         self.episode_transition['state'] = state
+        # print(self.episode_transition['state'])
 
         if self.mode == 'inference' or self.mode == 'test':
             # Get action from policy
@@ -217,6 +221,7 @@ class JumplegAgentTorque:
                 action = np.random.uniform(-1, 1, self.action_dim)
 
         self.episode_transition['action'] = action
+        # print(self.episode_transition['action'])
         action = (action*self.max_q)  # .clip(-np.pi,np.pi)
         resp = get_actionResponse()
         resp.action = action
