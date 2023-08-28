@@ -26,7 +26,7 @@ class TD3(object):
         policy_noise=0.2,
         noise_clip=0.5,
         policy_freq=2,
-        lr = 3e-4
+        lr = 1e-4
     ):
         self.double_critic = double_critic
         self.log_writer = log_writer
@@ -53,64 +53,46 @@ class TD3(object):
         self.total_it = 0
 
     def select_action(self, state):
-        start_t = time.time()
         self.actor.eval()
-        state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
-        # normalize state
-        # state = nn.functional.normalize(state, 2)
-        action = self.actor(state).cpu().data.numpy().flatten()
-        ex_t = time.time() - start_t
-        # rospy.loginfo(f'Action calculated in {ex_t} s')
+        with torch.no_grad():
+            state = torch.FloatTensor(state.reshape(1, -1)).to(self.device)
+            action = self.actor(state).cpu().data.numpy().flatten()
         return action
 
     def train(self, replay_buffer, batch_size=256):
         self.total_it += 1
 
-        state, action, next_state, reward, done = replay_buffer.sample(batch_size)
-
-        # normalize network input
-        # state = nn.functional.normalize(state,2)
-        # action = nn.functional.normalize(action,2)
-        # next_state = nn.functional.normalize(next_state,2)
-
         self.actor.train()
         self.critic.train()
 
-        if self.double_critic:
-            with torch.no_grad():
+        with torch.no_grad():
+                state, action, next_state, reward, done = replay_buffer.sample(batch_size)
+                
                 noise = (torch.randn_like(action) *
                         self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
 
                 # next_action = torch.nan_to_num(self.actor_target(next_state)+noise).clamp(-1, 1)
                 next_action = (self.actor_target(next_state)+noise).clamp(-1, 1)
-                # normalize next action
-                # next_action = nn.functional.normalize(next_action, 2)
 
-                # Compute the target Q value
-                target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
-                # target_Q1 = torch.nan_to_num(target_Q1)
-                # target_Q2 = torch.nan_to_num(target_Q2)
+        if self.double_critic:
+            # Compute the target Q value
+            target_Q1, target_Q2 =  self.critic_target(next_state, next_action)
 
-                target_Q = torch.min(target_Q1, target_Q2)
-                target_Q = reward + (1-done) * self.discount * target_Q
-                # print(target_Q)
-                # print('target_Q', target_Q)
-            
-                # Get the current Q estimates
+            target_Q = torch.min(target_Q1, target_Q2)
+            target_Q = reward + (1-done) * self.discount * target_Q
+            # print(target_Q)
+            # print('target_Q', target_Q)
+        
+            # Get the current Q estimates
             current_Q1, current_Q2 =  self.critic(state, action)
-            # current_Q1 = torch.nan_to_num(current_Q1)
-            # current_Q2 = torch.nan_to_num(current_Q2)
 
             # Compute critic loss
             critic_loss = self.loss_func(current_Q1, target_Q) + self.loss_func(current_Q2, target_Q)
-            # critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(current_Q2, target_Q)
 
         else:
-            with torch.no_grad():
-                target_Q = reward
+            target_Q = reward
             
             current_Q1 =  self.critic(state, action)
-            # current_Q1 = torch.nan_to_num(current_Q1)
 
             # Compute critic loss
             critic_loss = self.loss_func(current_Q1, target_Q)

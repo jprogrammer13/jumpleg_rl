@@ -64,7 +64,7 @@ class JumplegAgentTorque:
         self.state_dim = 49
         self.action_dim = 3
 
-        self.N = 50
+        self.N = 100
 
         # Action limitations
         self.max_q = np.array([np.pi/2, np.pi/2, np.pi/2])
@@ -87,15 +87,15 @@ class JumplegAgentTorque:
         self.batch_size = 256
         self.exploration_noise = 0.3
 
-        self.n_curriculum_episode = 10000
-        self.max_episode_target = 10
+        self.n_curriculum_episode = 2500
+        self.max_episode_target = 20
         self.curriculum_step = 0.5 / (self.n_curriculum_episode/self.max_episode_target)
         self.target_episode_counter = 0
         self.real_episode_counter = 0
         self.iteration_counter = 0
         self.net_iteration_counter = 0
 
-        self.random_episode = self.N*500
+        self.random_episode = self.N*100
 
         self.test_points = []
         self.rb_dump_it = 100 if self.mode == 'train' else 10
@@ -258,6 +258,8 @@ class JumplegAgentTorque:
                 'No touchdown', req.no_touchdown, self.iteration_counter)
             self.log_writer.add_scalar(
                 'Smoothness', req.smoothness, self.iteration_counter)
+            self.log_writer.add_scalar(
+                'Straight', req.straight, self.iteration_counter)
             rospy.loginfo(
                 f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
             rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
