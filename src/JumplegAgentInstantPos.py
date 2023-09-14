@@ -85,6 +85,8 @@ class JumplegAgentInstantPos:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 512
+        self.n_expl_reduction_episode = 20000
+        self.n_expl_reduction = 0.2 / (self.n_expl_reduction_episode/self.max_episode_target)
         self.exploration_noise = 0.3
 
         self.n_curriculum_episode = 2500
@@ -159,8 +161,13 @@ class JumplegAgentInstantPos:
         if self.curr_learning > 1:
             self.curr_learning = 1
         else:
-            
             self.curr_learning += self.curriculum_step
+
+        # Update exploartion noise while lower bound isn't reached
+        if self.exploration_noise < 0.1:
+            self.exploration_noise = 0.1
+        else:
+            self.exploration_noise -= self.n_expl_reduction
 
         return [-x, y, z]
 
@@ -251,9 +258,11 @@ class JumplegAgentInstantPos:
             'Smoothness', req.smoothness, self.iteration_counter)
         self.log_writer.add_scalar(
             'Straight', req.straight, self.iteration_counter)
-        rospy.loginfo(
-            f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
-        rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
+        
+        if req.done:
+            rospy.loginfo(
+                f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
+
         
         if self.mode == 'test':
             # Save results only on the end of the episode (avoid buffer overflow and data loss)
