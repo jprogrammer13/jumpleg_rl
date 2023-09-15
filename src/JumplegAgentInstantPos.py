@@ -85,12 +85,12 @@ class JumplegAgentInstantPos:
                           self.action_dim, self.layer_dim)
 
         self.batch_size = 512
+        self.max_episode_target = 20
         self.n_expl_reduction_episode = 20000
         self.n_expl_reduction = 0.2 / (self.n_expl_reduction_episode/self.max_episode_target)
         self.exploration_noise = 0.3
 
         self.n_curriculum_episode = 2500
-        self.max_episode_target = 20
         self.curriculum_step = 0.5 / (self.n_curriculum_episode/self.max_episode_target)
         self.target_episode_counter = 0
         self.episode_counter = 0
