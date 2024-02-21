@@ -38,9 +38,9 @@ weights:
                   0., 0., 0.,
                   2.0, 0.3, 0.3]
     stateRegularization: 0.0
-    stateBounds: 1000
+    stateBounds: 10
     actuationRegularization: 0.1
-    actuationBounds: 1000
+    actuationBounds: 10
 
 
   landingPhase:
@@ -75,7 +75,7 @@ weights:
     footVelocity: 1 # used only after touch down
     basePlacementDirectionPenalty: [ 0., 0., 0., 1., 1., 1. ]
     basePlacement: 0
-    com: 100
+    com: 10
     # weights ar in vel acc
     statePenalty: [ 0., 0., 0.,
                     0.0, 0.0, 0.0,

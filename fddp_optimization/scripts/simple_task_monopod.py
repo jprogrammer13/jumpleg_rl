@@ -262,8 +262,6 @@ if __name__ == '__main__':
                 counter += 1
                 p.time = np.round(p.time + np.array([p.loop_time]), 3)  # to avoid issues of dt 0.0009999
 
-            if DEBUG:
-                print("rel error", rel_error)
             data = {'test_nr':test,'n_iter':ddp.iter,'target':p.target_CoM, 'error_log':rel_error, 'landing_position': landing_position, 'elapsed_time':elapsed_time}
             df = df.append(data, ignore_index=True)
             df.to_csv('test_optim.csv', index=None)
