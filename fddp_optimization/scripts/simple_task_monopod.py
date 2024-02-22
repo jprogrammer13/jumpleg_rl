@@ -194,7 +194,8 @@ if __name__ == '__main__':
 
             #print("*** Starting task  ***", p.time)
             p.qd_des_old = np.zeros((6))
-
+            rel_error = np.inf
+            
             while not ros.is_shutdown():
                 p.updateKinematicsDynamics()
 
@@ -220,7 +221,7 @@ if __name__ == '__main__':
                 # p.q_des = p.q_des_q0.copy()
                 #p.tau_ffwd[3:] = - p.J.T.dot(p.g[:3]+ p.robot.robot_mass*p.qdd_des[:3])
 
-                rel_error = np.inf
+
 
                 if p.time > problemDescription['launchingT']:
                     p.detectApex()
