@@ -7,10 +7,7 @@ import numpy as np
 import os
 import argparse
 
-from ReplayBuffer import ReplayBuffer
-from TD3 import TD3
-import time
-import matplotlib.pyplot as plt
+from PPO import PPO
 from utils import *
 from std_msgs.msg import Float32
 from torch.utils.tensorboard import SummaryWriter
@@ -24,9 +21,6 @@ class JumplegAgent:
         self.mode = _mode
         self.data_path = _data_path
         self.model_name = _model_name
-        # convert string back to bool
-        self.restore_train = eval(_restore_train)
-        rospy.loginfo(f'restore_train: {self.restore_train}')
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
@@ -80,61 +74,41 @@ class JumplegAgent:
         self.exp_r = [0., 0.65]
 
         # RL
-        self.layer_dim = 256
+        self.layer_dim = 128
 
-        self.replayBuffer = ReplayBuffer(self.state_dim, self.action_dim)
-        self.policy = TD3(self.log_writer, self.state_dim,
-                          self.action_dim, self.layer_dim, double_critic=False)
+        # TODO: fix_param
+        self.action_std = 0.6
+        self.action_std_decay_rate = 0.05
+        self.min_action_std = 0.1
+        self.action_std_decay_freq = int(2.5e2)
 
-        self.batch_size = 256
-        self.exploration_noise = 0.4
+        self.update_timestep = 10      # update ppo_agent every n timesteps
+        K_epochs = 10               # update ppo_agent for K epochs
+        eps_clip = 0.2              # clip parameter for PPO
+        gamma = 0.99                # discount factor
+
+        lr_actor = 3e-4       # learning rate for actor network
+        lr_critic = 1e-3       # learning rate for critic network
+
+        self.ppo_agent = PPO(self.state_dim, self.action_dim, lr_actor,
+                             lr_critic, gamma, K_epochs, eps_clip, self.action_std)
 
         self.max_episode_target = 5
         self.episode_counter = 0
         self.iteration_counter = 0
-        self.random_episode = 1280
 
         self.test_points = []
-        self.rb_dump_it = 100 if self.mode == 'train' else 10
 
         if self.mode == 'test':
             self.test_points = np.loadtxt(
                 os.environ["LOCOSIM_DIR"] + "/robot_control/jumpleg_rl/src/"+'test_points.txt')
 
-        # restore train
-        if self.restore_train:
-            self.replayBuffer = joblib.load(os.path.join(
-                self.main_folder, 'ReplayBuffer_train.joblib'))
-            self.iteration_counter = self.replayBuffer.get_number_episodes()
-
-        # if mode is only train the model weights are not restore
-        if self.mode != 'train' or self.restore_train:
-
-            if self.restore_train:
-
-                net_iteration_counter = self.iteration_counter - self.random_episode
-
-                # chech if TD3 was already trained
-                if net_iteration_counter > 0:
-                    self.policy.load(
-                        self.data_path, self.model_name, net_iteration_counter)
-
-            else:
-                # load pre-trained TD3
-                self.policy.load(self.data_path, self.model_name, 0)
-
-        self.episode_transition = {
-            "state": None,
-            "action": None,
-            "next_state": None,
-            "reward": None,
-            "done": 1
-        }
+        if self.mode != 'train':
+            self.ppo_agent.load(self.data_path, self.model_name)
 
         self.targetCoM = self.generate_target()
 
         # Start ROS node
-
         rospy.init_node(self.node_name)
         rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
 
@@ -160,7 +134,8 @@ class JumplegAgent:
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
                 # dump replay buffer
-                self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
+                # self.replayBuffer.dump(
+                #     os.path.join(self.main_folder), self.mode)
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -173,27 +148,8 @@ class JumplegAgent:
 
     def get_action_handler(self, req):
         state = np.array(req.state)
-        self.episode_transition['state'] = state
 
-        if self.mode == 'inference' or self.mode == 'test':
-            # Get action from policy
-            action = self.policy.select_action(state)
-
-        elif self.mode == 'train':
-            # Check if we have enought iteration to start the training
-            if self.iteration_counter >= self.random_episode:
-                # Get action from policy and apply exploration noise
-                action = (
-                    self.policy.select_action(state) +
-                    np.random.normal(
-                        0, 1*self.exploration_noise,
-                        size=self.action_dim)
-                ).clip(-1, 1)
-            else:
-                # If we don't have enought iteration, genreate random action
-                action = np.random.uniform(-1, 1, self.action_dim)
-
-        self.episode_transition['action'] = action
+        action = self.ppo_agent.select_action(state)
 
         # Performs action composition from [-1,1]
 
@@ -229,9 +185,13 @@ class JumplegAgent:
         return resp
 
     def set_reward_handler(self, req):
-        self.episode_transition['next_state'] = np.array(req.next_state)
+        state = np.array(req.next_state)
+        reward = np.array(req.reward)
+        # In this case is always done
+        done = 1
 
-        self.episode_transition['reward'] = np.array(req.reward)
+        self.ppo_agent.buffer.rewards.append(reward)
+        self.ppo_agent.buffer.is_terminals.append(done)
 
         self.log_writer.add_scalar(
             'Reward', req.reward, self.iteration_counter)
@@ -258,50 +218,30 @@ class JumplegAgent:
         self.log_writer.add_scalar(
             'Total cost', req.total_cost, self.iteration_counter)
         rospy.loginfo(
-            f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
-        rospy.loginfo(f"Episode transition:\n {self.episode_transition}")
+            f"Reward[it {self.iteration_counter}]: {reward}")
 
-        self.replayBuffer.store(self.episode_transition['state'],
-                                self.episode_transition['action'],
-                                self.episode_transition['next_state'],
-                                self.episode_transition['reward'],
-                                self.episode_transition['done'])
-
-        # reset the episode transition
-        self.episode_transition = {
-            "state": None,
-            "action": None,
-            "next_state": None,
-            "reward": None,
-            "done": 1
-        }
+        self.iteration_counter += 1
+        self.episode_counter += 1
 
         if self.mode == 'train':
-            if self.iteration_counter > self.random_episode:
+            if self.iteration_counter % self.update_timestep == 0:
+                self.ppo_agent.update()
+            if self.iteration_counter % self.action_std_decay_freq == 0:
+                self.ppo_agent.decay_action_std(
+                    self.action_std_decay_rate, self.min_action_std)
 
-                self.policy.train(self.replayBuffer, self.batch_size)
+            if (self.iteration_counter) % 1000 == 0:
 
-                net_iteration_counter = self.iteration_counter - self.random_episode
+                rospy.loginfo(
+                    f"Saving RL agent networks, epoch {self.iteration_counter}")
 
-                if (net_iteration_counter + 1) % 1000 == 0:
+                self.ppo_agent.save(os.path.join(
+                    self.main_folder, 'partial_weights'), str(self.iteration_counter))
 
-                    rospy.loginfo(
-                        f"Saving RL agent networks, epoch {net_iteration_counter+1}")
-
-                    self.policy.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(net_iteration_counter+1))
-
-                self.policy.save(self.data_path, 'latest')
-
-        if (self.iteration_counter + 1) % self.rb_dump_it == 0:
-            self.replayBuffer.dump(os.path.join(
-                self.main_folder), self.mode)
+            self.ppo_agent.save(self.data_path, 'latest')
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
-
-        self.episode_counter += 1
-        self.iteration_counter += 1
 
         return resp
 
