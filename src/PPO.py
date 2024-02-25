@@ -21,14 +21,14 @@ class PPO:
         self.buffer = RolloutBuffer()
 
         self.policy = ActorCritic(
-            state_dim, action_dim, action_std_init).to(self.device)
+            state_dim, action_dim, action_std_init, self.device).to(self.device)
         self.optimizer = torch.optim.Adam([
             {'params': self.policy.actor.parameters(), 'lr': lr_actor},
             {'params': self.policy.critic.parameters(), 'lr': lr_critic}
         ])
 
         self.policy_old = ActorCritic(
-            state_dim, action_dim, action_std_init).to(self.device)
+            state_dim, action_dim, action_std_init, self.device).to(self.device)
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.loss_mse = nn.MSELoss()

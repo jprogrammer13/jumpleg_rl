@@ -80,7 +80,7 @@ class JumplegAgent:
         self.action_std = 0.6
         self.action_std_decay_rate = 0.05
         self.min_action_std = 0.1
-        self.action_std_decay_freq = int(2.5e2)
+        self.action_std_decay_freq = int(500)
 
         self.update_timestep = 10      # update ppo_agent every n timesteps
         K_epochs = 10               # update ppo_agent for K epochs
