@@ -3,7 +3,7 @@ import torch.nn as nn
 import os
 
 from RolloutBuffer import RolloutBuffer
-from ActorCritic import ActorCritic
+from ActorCritic_PPO import ActorCritic
 
 
 class PPO:
@@ -129,5 +129,5 @@ class PPO:
 
     # TODO: implement
     def load(self, path, name):
-        self.critic.load_state_dict(torch.load(
+        self.policy.load_state_dict(torch.load(
             os.path.join(path, f"PPO_{name}.pt"), map_location=self.device))

@@ -163,11 +163,18 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  src/JumplegAgent.py
-  src/ActorCritic.py
+  src/JumplegAgent_PPO.py
+  src/JumplegAgentInstantPos_PPO.py
+  src/JumplegAgent_TD3.py
+  src/JumplegAgentInstantPos_TD3.py
+  src/ActorCritic_PPO.py
+  src/Actor.py
+  src/Critic.py
   src/PPO.py
+  src/TD3.py
   src/utils.py
   src/RolloutBuffer.py
+  src/ReplayBuffer.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

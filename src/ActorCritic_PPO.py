@@ -17,18 +17,18 @@ class ActorCritic(nn.Module):
 
         self.actor = nn.Sequential(
             nn.Linear(state_dim, layer_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(layer_dim, layer_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(layer_dim, action_dim),
             nn.Tanh()
         )
 
         self.critic = nn.Sequential(
             nn.Linear(state_dim, layer_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(layer_dim, layer_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(layer_dim, 1)
         )
 
