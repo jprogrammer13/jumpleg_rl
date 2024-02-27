@@ -21,6 +21,8 @@ class JumplegAgent:
         self.mode = _mode
         self.data_path = _data_path
         self.model_name = _model_name
+        # convert string back to bool
+        self.restore_train = eval(_restore_train)
 
         # Service proxy
         self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
@@ -48,7 +50,7 @@ class JumplegAgent:
         if not os.path.exists(os.path.join(self.main_folder, 'logs')):
             os.mkdir(os.path.join(self.main_folder, 'logs'))
 
-        if self.mode == 'train_first':
+        if self.mode == 'train':
             if not os.path.exists(os.path.join(self.main_folder, 'partial_weights')):
                 os.mkdir(os.path.join(self.main_folder, 'partial_weights'))
 
@@ -76,7 +78,7 @@ class JumplegAgent:
         # RL
         self.layer_dim = 256
 
-        self.action_std = 0.6 if self.mode == 'train_first' else 0.1
+        self.action_std = 0.6 if self.mode == 'train' else 0.1
 
         self.action_std_decay_rate = 0.05
         self.min_action_std = 0.1
@@ -96,6 +98,7 @@ class JumplegAgent:
         self.max_episode_target = 5
         self.episode_counter = 0
         self.iteration_counter = 0
+        self.net_iteration_counter = 0
 
         self.test_points = []
 
@@ -103,14 +106,22 @@ class JumplegAgent:
             self.test_points = np.loadtxt(
                 os.environ["LOCOSIM_DIR"] + "/robot_control/jumpleg_rl/src/"+'test_points.txt')
 
-        if self.mode != 'train_first':
+        if self.mode != 'train' or self.restore_train:
             self.ppo_agent.load(self.data_path, self.model_name)
+            if self.restore_train:
+                pw = os.listdir(os.path.join(
+                    self.data_path, 'train', 'partial_weights'))
+                # restore the episode number from the latest partial weight
+                self.net_iteration_counter = np.array(
+                    [int(i.split('_')[-1].split('.pt')[0]) for i in pw]).max()
 
         self.targetCoM = self.generate_target()
 
         # Start ROS node
         rospy.init_node(self.node_name)
         rospy.loginfo(f"JumplegAgent is lissening: {self.mode}")
+        rospy.loginfo(
+            f'restore_train: {self.restore_train}, net_iteration: {self.net_iteration_counter}')
 
         rospy.spin()
 
@@ -133,11 +144,11 @@ class JumplegAgent:
                 self.targetCoM = self.test_points[self.iteration_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
-                #TODO: replace buffer with csv
+                # TODO: replace buffer with csv
                 # self.replayBuffer.dump(
                 #     os.path.join(self.main_folder), self.mode)
 
-        elif self.mode == 'train_first':
+        elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
                 self.episode_counter = 0
                 self.targetCoM = self.generate_target()
@@ -223,22 +234,24 @@ class JumplegAgent:
         self.iteration_counter += 1
         self.episode_counter += 1
 
-        if self.mode == 'train_first':
+        if self.mode == 'train':
             if self.iteration_counter % self.update_timestep == 0:
                 self.ppo_agent.update()
+                self.net_iteration_counter += 1
+
+                if (self.net_iteration_counter) % 1000 == 0:
+
+                    rospy.loginfo(
+                        f"Saving RL agent networks, epoch {self.net_iteration_counter}")
+
+                    self.ppo_agent.save(os.path.join(
+                        self.main_folder, 'partial_weights'), str(self.net_iteration_counter))
+
+                self.ppo_agent.save(self.data_path, 'latest')
+
             if self.iteration_counter % self.action_std_decay_freq == 0:
                 self.ppo_agent.decay_action_std(
                     self.action_std_decay_rate, self.min_action_std)
-
-            if (self.iteration_counter) % 1000 == 0:
-
-                rospy.loginfo(
-                    f"Saving RL agent networks, epoch {self.iteration_counter}")
-
-                self.ppo_agent.save(os.path.join(
-                    self.main_folder, 'partial_weights'), str(self.iteration_counter))
-
-            self.ppo_agent.save(self.data_path, 'latest')
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
