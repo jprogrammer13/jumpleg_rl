@@ -9,7 +9,8 @@ float64 friction
 float64 singularity
 float64 joint_range
 float64 joint_torques
-float64 no_touchdown
+float64 fly_config
+float64 hop
 float64 smoothness
 float64 straight
 ---

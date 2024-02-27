@@ -91,7 +91,7 @@ class JumplegAgentInstantPos:
         self.ppo_agent = PPO(self.state_dim, self.action_dim, lr_actor,
                              lr_critic, gamma, K_epochs, eps_clip, self.action_std)
 
-        self.max_episode_target = 20
+        self.max_episode_target = 10
 
         self.n_curriculum_episode = 2500
         self.curriculum_step = 0.5 / \
@@ -206,7 +206,9 @@ class JumplegAgentInstantPos:
         self.log_writer.add_scalar(
             'Joint torque', req.joint_torques, self.iteration_counter)
         self.log_writer.add_scalar(
-            'No touchdown', req.no_touchdown, self.iteration_counter)
+            'Flying config.', req.fly_config, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Hopping', req.hop, self.iteration_counter)
         self.log_writer.add_scalar(
             'Smoothness', req.smoothness, self.iteration_counter)
         self.log_writer.add_scalar(

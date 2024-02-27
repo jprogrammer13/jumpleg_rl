@@ -253,7 +253,9 @@ class JumplegAgentInstantPos:
         self.log_writer.add_scalar(
             'Joint torque', req.joint_torques, self.iteration_counter)
         self.log_writer.add_scalar(
-            'No touchdown', req.no_touchdown, self.iteration_counter)
+            'Flying config.', req.fly_config, self.iteration_counter)
+        self.log_writer.add_scalar(
+            'Hopping', req.hop, self.iteration_counter)
         self.log_writer.add_scalar(
             'Smoothness', req.smoothness, self.iteration_counter)
         self.log_writer.add_scalar(
