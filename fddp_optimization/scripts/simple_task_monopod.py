@@ -60,15 +60,15 @@ def computeOptimization(p, problemDescription):
 def plotOptimization(p, ddp):
     knot_number_us = len(ddp.us)
     knot_number_xs = len(ddp.xs)
-    p.w_x_ee_log = np.empty((3, knot_number_xs))* np.nan
-    p.w_base_log = np.empty((3, knot_number_xs)) * np.nan
+    p.w_des_x_ee_log = np.empty((3, knot_number_xs))* np.nan
+    p.w_des_base_log = np.empty((3, knot_number_xs)) * np.nan
     p.w_grf_log = np.empty((3, knot_number_xs)) * np.nan
     time_log = np.empty((knot_number_xs)) * np.nan
     time = 0
     for i in range(knot_number_xs-10):
         q_des = ddp.xs[i][:6]
-        p.w_base_log[:,i] = ddp.xs[i][:3]
-        p.w_x_ee_log[:, i] = p.robot.framePlacement(q_des, p.robot.model.getFrameId(conf.robot_params[p.robot_name]['ee_frame'])).translation
+        p.w_des_base_log[:,i] = ddp.xs[i][:3]
+        p.w_des_x_ee_log[:, i] = p.robot.framePlacement(q_des, p.robot.model.getFrameId(conf.robot_params[p.robot_name]['ee_frame'])).translation
         # J = p.robot.frameJacobian(q_des, p.robot.model.getFrameId(conf.robot_params[p.robot_name]['ee_frame']), True, pinocchio.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, 3:]
 
         pin.forwardKinematics(p.robot.model, p.robot.data, q_des, np.zeros(p.robot.model.nv),
@@ -89,8 +89,8 @@ def plotOptimization(p, ddp):
 def computeFootTargetError(p):
     # compoute error
     # consider size of the foot
-    #  rel_error = np.linalg.norm(des_foot_location - (p.w_x_ee+ np.array([0,0,-0.015])) / jump_length
-    rel_error = np.linalg.norm(des_foot_location - p.w_x_ee) / jump_length
+    #  rel_error = np.linalg.norm(des_foot_location - (p.w_x_ee+ np.array([0,0,-0.015])) / self.jump_length
+    rel_error = np.linalg.norm(des_foot_location - p.w_x_ee) / p.jump_length
 
     # print("Des Foot: ", des_foot_location)
     print("Landing location: ", p.w_x_ee)
@@ -100,7 +100,7 @@ def computeFootTargetError(p):
 def computeBaseTargetError(p):
     # compoute error
     base_pos_w = p.base_offset + p.q[:3]
-    rel_error = np.linalg.norm(p.target_CoM - base_pos_w) / jump_length
+    rel_error = np.linalg.norm(p.target_CoM - base_pos_w) / p.jump_length
     print("Base Relative Error: ", rel_error)
     p.rel_error_log.append(rel_error)
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         print("new target", problemDescription['jumpLength'])
 
         des_foot_location = np.array(problemDescription['jumpLength'])
-        jump_length = np.linalg.norm(des_foot_location)
+        p.jump_length = np.linalg.norm(des_foot_location)
         p.target_CoM = des_foot_location.copy()
         p.target_CoM[2] += 0.25
         try:
