@@ -76,7 +76,7 @@ class JumplegAgentInstantPos:
         # RL
         avg_ep_len = 1000
 
-        self.layer_dim = 256
+        self.layer_dim = 64
 
         self.action_std = 0.6 if self.mode == 'train' else 0.1
 

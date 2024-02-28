@@ -80,7 +80,7 @@ class JumplegAgent:
         self.exp_r = [0., 0.65]
 
         # RL
-        self.layer_dim = 256
+        self.layer_dim = 64
 
         self.action_std = 0.6 if self.mode == 'train' else 0.1
 

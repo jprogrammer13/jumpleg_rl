@@ -6,7 +6,7 @@ from torch.distributions import MultivariateNormal
 
 
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim, action_std_init, device, layer_dim=128):
+    def __init__(self, state_dim, action_dim, action_std_init, device, layer_dim=64):
         super(ActorCritic, self).__init__()
 
         self.state_dim = state_dim
@@ -17,18 +17,18 @@ class ActorCritic(nn.Module):
 
         self.actor = nn.Sequential(
             nn.Linear(state_dim, layer_dim),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(layer_dim, layer_dim),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(layer_dim, action_dim),
             nn.Tanh()
         )
 
         self.critic = nn.Sequential(
             nn.Linear(state_dim, layer_dim),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(layer_dim, layer_dim),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(layer_dim, 1)
         )
 
