@@ -86,16 +86,16 @@ def plotOptimization(p, ddp):
         time_log[i] = time
         time+=p.loop_time
 
-def computeFootTargetError(p):
+def computeFootTargetError(p,des_foot_target):
     # compoute error
     # consider size of the foot
     #  rel_error = np.linalg.norm(des_foot_location - (p.w_x_ee+ np.array([0,0,-0.015])) / self.jump_length
-    rel_error = np.linalg.norm(des_foot_location - p.w_x_ee) / p.jump_length
+    rel_landing_error = np.linalg.norm(des_foot_target - p.w_x_ee) / p.jump_length
 
     # print("Des Foot: ", des_foot_location)
     print("Landing location: ", p.w_x_ee)
-    print("Relative Error: ", rel_error)
-    return rel_error, p.w_x_ee
+    print("Relative landing Error: ", rel_landing_error)
+    return rel_landing_error, p.w_x_ee
 
 def computeBaseTargetError(p):
     # compoute error
@@ -145,12 +145,12 @@ if __name__ == '__main__':
         df = pd.read_csv('test_optim.csv',header=0)
     except:
         print(colored('CREATING NEW CSV', 'blue'))
-        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'target','error_log', 'landing_position','elapsed_time'])
+        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'landing_position','elapsed_time'])
 
     # DEBUG
     if DEBUG: # overwrite
-        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'target','error_log', 'landing_position','elapsed_time'])
-        test_points = np.array([[0.3, 0.0, 0.25]])
+        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'landing_position','elapsed_time'])
+        test_points = np.array([[0.2, 0.0, 0.25]])
 
 
     for test in range(len(df), test_points.shape[0]):
@@ -170,11 +170,11 @@ if __name__ == '__main__':
         # this is the foot position
         problemDescription['jumpLength'] = np.array([test_points[test, 0], test_points[test, 1], test_points[test, 2] -0.25])
 
-        print("new target", problemDescription['jumpLength'])
+        print("new foot target", problemDescription['jumpLength'])
 
-        des_foot_location = np.array(problemDescription['jumpLength'])
-        p.jump_length = np.linalg.norm(des_foot_location)
-        p.target_CoM = des_foot_location.copy()
+        des_foot_target = np.array(problemDescription['jumpLength'])
+        p.jump_length = np.linalg.norm(des_foot_target)
+        p.target_CoM = des_foot_target.copy()
         p.target_CoM[2] += 0.25
         try:
             print("*** compute optim  *** #:", test)
@@ -194,27 +194,29 @@ if __name__ == '__main__':
 
             #print("*** Starting task  ***", p.time)
             p.qd_des_old = np.zeros((6))
-            rel_error = np.inf
+            rel_landing_error = np.inf
+            landing_position = None
             
             while not ros.is_shutdown():
                 p.updateKinematicsDynamics()
 
-                # set references interpolated
-                if counter > len(ddp.us):  # us has N element xs N+1
+
+                if counter >= (problemDescription['timeStep']/p.loop_time)*len(ddp.us):  # us has N element xs N+1
                     # computeFootTargetError(p)
                     # computeBaseTargetError(p)
                     break
-                p.q_des, p.qd_des, p.tau_ffwd[3:] = ddp_ref_gen.next()
+                # set references interpolated (not sure it works)
+                #p.q_des, p.qd_des, p.tau_ffwd[3:] = ddp_ref_gen.next()
 
                 # # otherwise without interp if the controller rate is the same as the ddp rate
-                # if counter < len(ddp.us):# us has N element xs N+1
-                #     p.q_des = ddp.xs[counter][:6]
-                #     p.qd_des = ddp.xs[counter][6:12]
-                #     if counter>0:
-                #         p.qdd_des = 1/p.loop_time*(p.qd_des - p.qd_des_old)
-                #         p.qd_des_old = p.qd_des
-                #     if len(ddp.us[counter]) !=0:
-                #         p.tau_ffwd[3:] = ddp.us[counter]
+                if counter < (problemDescription['timeStep']/p.loop_time)*len(ddp.us):# us has N element xs N+1
+                    p.q_des = ddp.xs[int(np.floor(counter/problemDescription['timeStep']*p.loop_time))][:6]
+                    p.qd_des = ddp.xs[int(np.floor(counter/problemDescription['timeStep']*p.loop_time))][6:12]
+                    # if counter>0:
+                    #     p.qdd_des = 1/p.loop_time*(p.qd_des - p.qd_des_old)
+                    #     p.qd_des_old = p.qd_des
+                    if len(ddp.us[int(np.floor(counter/problemDescription['timeStep']*p.loop_time))]) !=0:
+                        p.tau_ffwd[3:] = ddp.us[int(np.floor(counter/problemDescription['timeStep']*p.loop_time))]
 
 
                 # to debug
@@ -229,12 +231,9 @@ if __name__ == '__main__':
                         # set jump position (avoid collision in jumping)
                         if not p.detectedTouchDown and p.detectTouchDown():
                             # we compare with the foot error, at the end it will converge to that at the end of the transient
-                            rel_error, landing_position = computeFootTargetError(p)
+                            rel_landing_error, landing_position = computeFootTargetError(p, des_foot_target)
                             #computeBaseTargetError(p)
                             p.detectedTouchDown = True
-
-
-
 
                 # finally, send commands
                 p.send_des_jstate(p.q_des, p.qd_des, p.tau_ffwd)
@@ -247,9 +246,9 @@ if __name__ == '__main__':
                 else:
                     p.ros_pub.add_arrow(
                         p.w_x_ee, p.contactForceW / (10 * p.robot.robot_mass), "red")
-                p.ros_pub.add_arrow( p.w_x_ee,p.w_grf_log[:,counter], "blue")
+                p.ros_pub.add_arrow( p.w_x_ee,p.w_grf_log[:,int(np.floor(counter/problemDescription['timeStep']*p.loop_time))], "blue")
                 # plot end-effector
-                p.ros_pub.add_marker(des_foot_location, color="blue", radius=0.1)
+                p.ros_pub.add_marker(des_foot_target, color="blue", radius=0.1)
                 if landing_position is not None:
                     p.ros_pub.add_marker(landing_position, color="red", radius=0.15)
                 #p.ros_pub.add_marker( p.w_x_ee, radius=0.05)
@@ -261,9 +260,10 @@ if __name__ == '__main__':
                 rate.sleep()
 
                 counter += 1
+
                 p.time = np.round(p.time + np.array([p.loop_time]), 3)  # to avoid issues of dt 0.0009999
 
-            data = {'test_nr':test,'n_iter':ddp.iter,'target':p.target_CoM, 'error_log':rel_error, 'landing_position': landing_position, 'elapsed_time':elapsed_time}
+            data = {'test_nr':test,'n_iter':ddp.iter,'foot_target':des_foot_target, 'rel_landing_error':rel_landing_error, 'foot_landing_position': landing_position, 'elapsed_time':elapsed_time}
             df = df.append(data, ignore_index=True)
             df.to_csv('test_optim.csv', index=None)
 
