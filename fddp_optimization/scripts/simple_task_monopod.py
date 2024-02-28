@@ -104,6 +104,15 @@ def computeBaseTargetError(p):
     print("Base Relative Error: ", rel_error)
     p.rel_error_log.append(rel_error)
 
+def detectTouchDownKinematic(p):
+    # kinematic base touch-down
+    if (p.w_x_ee[2] <= 0.017):
+        print(colored("TOUCHDOWN detected", "red"))
+        return True
+    else:
+        return False
+
+
 if __name__ == '__main__':
     config_file = open(os.getcwd() + '/'+ CONFIG_NAME + '.yaml')
     with open(os.getcwd()  +'/'+ CONFIG_NAME + '.yaml') as stream:
@@ -229,7 +238,8 @@ if __name__ == '__main__':
                     p.detectApex()
                     if (p.detectedApexFlag):
                         # set jump position (avoid collision in jumping)
-                        if not p.detectedTouchDown and p.detectTouchDown():
+                        #if not p.detectedTouchDown and p.detectTouchDown():
+                        if not p.detectedTouchDown and detectTouchDownKinematic(p):
                             # we compare with the foot error, at the end it will converge to that at the end of the transient
                             rel_landing_error, landing_position = computeFootTargetError(p, des_foot_target)
                             #computeBaseTargetError(p)
