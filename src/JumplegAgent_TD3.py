@@ -6,6 +6,7 @@ import rospy
 import numpy as np
 import os
 import argparse
+import pandas as pd
 
 from ReplayBuffer import ReplayBuffer
 from TD3 import TD3
@@ -60,6 +61,9 @@ class JumplegAgent:
 
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
+        
+        self.data = pd.DataFrame(
+            columns=['state', 'action', 'next_state', 'reward', 'done'])
 
         self.state_dim = 6
         self.action_dim = 5
@@ -159,8 +163,9 @@ class JumplegAgent:
                 self.targetCoM = self.test_points[self.iteration_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
-                # dump replay buffer
-                self.replayBuffer.dump(os.path.join(self.main_folder), self.mode)
+                # save test results in csv
+                self.data.to_csv(os.path.join(
+                    self.main_folder, 'test.csv'),index=None)
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -267,15 +272,6 @@ class JumplegAgent:
                                 self.episode_transition['reward'],
                                 self.episode_transition['done'])
 
-        # reset the episode transition
-        self.episode_transition = {
-            "state": None,
-            "action": None,
-            "next_state": None,
-            "reward": None,
-            "done": 1
-        }
-
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
 
@@ -296,6 +292,19 @@ class JumplegAgent:
         if (self.iteration_counter + 1) % self.rb_dump_it == 0:
             self.replayBuffer.dump(os.path.join(
                 self.main_folder), self.mode)
+            
+        if self.mode == 'test':
+            self.data = pd.concat(
+                [self.data, pd.DataFrame([self.episode_transition])], ignore_index=True)
+
+        # reset the episode transition
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done": 1
+        }
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
