@@ -105,8 +105,8 @@ def computeBaseTargetError(p):
     p.rel_error_log.append(rel_error)
 
 def detectTouchDownKinematic(p):
-    # kinematic base touch-down
-    if (p.w_x_ee[2] <= 0.017):
+    # kinematic based touch-down
+    if (p.w_x_ee[2] <= (des_foot_target[2] + 0.02)):
         print(colored("TOUCHDOWN detected", "red"))
         return True
     else:

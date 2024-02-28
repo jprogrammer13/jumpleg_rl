@@ -1,7 +1,7 @@
 # jump on horizontal terrain
 robot: jumpleg
 type: jumpOnHorizontalTerrain
-timeStep:    0.002 # [s]
+timeStep:    0.001 # [s]
 launchingT:  0.3 # [s]  contact times
 landedT:     0.6 # [s]
 jumpHeight: .1
