@@ -6,6 +6,7 @@ import rospy
 import numpy as np
 import os
 import argparse
+import pandas as pd
 
 from PPO import PPO
 from utils import *
@@ -57,6 +58,9 @@ class JumplegAgentInstantPos:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
+        self.data = pd.DataFrame(
+            columns=['state', 'action', 'next_state', 'reward', 'done'])
+
         self.state_dim = 25
         self.action_dim = 3
 
@@ -101,7 +105,6 @@ class JumplegAgentInstantPos:
 
         self.episode_counter = 0
         self.iteration_counter = 0
-        self.net_iteration_counter = 0
 
         self.test_points = []
 
@@ -115,8 +118,16 @@ class JumplegAgentInstantPos:
                 pw = os.listdir(os.path.join(
                     self.data_path, 'train', 'partial_weights'))
                 # restore the episode number from the latest partial weight
-                self.net_iteration_counter = np.array(
+                self.episode_counter = np.array(
                     [int(i.split('_')[-1].split('.pt')[0]) for i in pw]).max()
+
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done": None
+        }
 
         self.targetCoM = self.generate_target()
 
@@ -124,7 +135,7 @@ class JumplegAgentInstantPos:
         rospy.init_node(self.node_name)
         rospy.loginfo(f"JumplegAgent is listening: {self.mode}")
         rospy.loginfo(
-            f'restore_train: {self.restore_train}, net_iteration: {self.net_iteration_counter}')
+            f'restore_train: {self.restore_train}, net_iteration: {self.episode_counter}')
 
         rospy.spin()
 
@@ -160,9 +171,9 @@ class JumplegAgentInstantPos:
                 self.targetCoM = self.test_points[self.episode_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
-                # TODO: replace buffer with csv save
-                # self.replayBuffer.dump(
-                #     os.path.join(self.main_folder), self.mode)
+                # save test results in csv
+                self.data.to_csv(os.path.join(
+                    self.main_folder, 'test.csv'),index=None)
 
         elif self.mode == 'train':
             if self.target_episode_counter > self.max_episode_target:
@@ -184,9 +195,16 @@ class JumplegAgentInstantPos:
         return resp
 
     def set_reward_handler(self, req):
-        state = np.array(req.next_state)
+        next_state = np.array(req.next_state)
+
         reward = np.array(req.reward)
         done = req.done
+
+        self.episode_transition['state'] = np.array(req.state)
+        self.episode_transition['action'] = np.array(req.action)
+        self.episode_transition['reward'] = np.array(req.reward)
+        self.episode_transition['next_state'] = np.array(req.next_state)
+        self.episode_transition['done'] = np.array(req.done)
 
         self.ppo_agent.buffer.rewards.append(reward)
         self.ppo_agent.buffer.is_terminals.append(done)
@@ -221,22 +239,31 @@ class JumplegAgentInstantPos:
         if self.mode == 'test':
             # Save results only on the end of the episode (avoid buffer overflow and data loss)
             if req.done:
-                # TODO: store into the csv with the final state
-                pass
+                # store into the csv with the final state
+                self.data = pd.concat(
+                    [self.data, pd.DataFrame([self.episode_transition])], ignore_index=True)
 
         self.iteration_counter += 1
+
+        # reset the episode transition
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done": None
+        }
 
         if self.mode == 'train':
             if self.iteration_counter % self.update_timestep == 0:
                 print('########## Training PPO ################')
                 self.ppo_agent.update()
-                self.net_iteration_counter += 1
 
-                if (self.net_iteration_counter) % 1000 == 0:
+                if (self.episode_counter) % 1000 == 0:
                     rospy.loginfo(
-                        f"Saving RL agent networks, net_iteration {self.net_iteration_counter}")
+                        f"Saving RL agent networks, net_iteration {self.episode_counter}")
                     self.ppo_agent.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(self.net_iteration_counter))
+                        self.main_folder, 'partial_weights'), str(self.episode_counter))
 
             self.ppo_agent.save(self.data_path, 'latest')
             if self.iteration_counter % self.action_std_decay_freq == 0:

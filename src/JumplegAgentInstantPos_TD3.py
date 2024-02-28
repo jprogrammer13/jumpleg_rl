@@ -6,6 +6,7 @@ import rospy
 import numpy as np
 import os
 import argparse
+import pandas as pd
 
 from ReplayBuffer import ReplayBuffer
 from TD3 import TD3
@@ -61,6 +62,9 @@ class JumplegAgentInstantPos:
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
 
+        self.data = pd.DataFrame(
+            columns=['state', 'action', 'next_state', 'reward', 'done'])
+
         self.state_dim = 25
         self.action_dim = 3
 
@@ -87,15 +91,17 @@ class JumplegAgentInstantPos:
         self.batch_size = 512
         self.max_episode_target = 20
         self.n_expl_reduction_episode = 20000
-        self.n_expl_reduction = 0.2 / (self.n_expl_reduction_episode/self.max_episode_target)
+        self.n_expl_reduction = 0.2 / \
+            (self.n_expl_reduction_episode/self.max_episode_target)
         self.exploration_noise = 0.3
 
         self.n_curriculum_episode = 2500
-        self.curriculum_step = 0.5 / (self.n_curriculum_episode/self.max_episode_target)
+        self.curriculum_step = 0.5 / \
+            (self.n_curriculum_episode/self.max_episode_target)
         self.target_episode_counter = 0
         self.episode_counter = 0
         self.iteration_counter = 0
-        self.net_iteration_counter = 0
+        self.episode_counter = 0
 
         self.random_steps = 10000
 
@@ -118,11 +124,11 @@ class JumplegAgentInstantPos:
 
             if self.restore_train:
 
-                self.net_iteration_counter = self.iteration_counter - self.random_steps
+                net_iteration_counter = self.iteration_counter - self.random_steps
                 # chech if TD3 was already trained
-                if self.net_iteration_counter > 0:
+                if net_iteration_counter > 0:
                     self.policy.load(
-                        self.data_path, self.model_name, self.net_iteration_counter)
+                        self.data_path, self.model_name, net_iteration_counter)
 
             else:
                 # load pre-trained TD3
@@ -183,8 +189,9 @@ class JumplegAgentInstantPos:
                 self.targetCoM = self.test_points[self.episode_counter]
             else:  # send stop signal
                 self.targetCoM = [0, 0, -1]
-                self.replayBuffer.dump(
-                    os.path.join(self.main_folder), self.mode)
+                # save test results in csv
+                self.data.to_csv(os.path.join(
+                    self.main_folder, 'test.csv'),index=None)
 
         elif self.mode == 'train':
             if self.target_episode_counter > self.max_episode_target:
@@ -237,7 +244,6 @@ class JumplegAgentInstantPos:
         self.episode_transition['state'] = np.array(req.state)
         self.episode_transition['action'] = np.array(req.action)
 
-
         self.log_writer.add_scalar(
             'Reward', req.reward, self.iteration_counter)
         self.log_writer.add_scalar(
@@ -260,29 +266,26 @@ class JumplegAgentInstantPos:
             'Smoothness', req.smoothness, self.iteration_counter)
         self.log_writer.add_scalar(
             'Straight', req.straight, self.iteration_counter)
-        
+
         if req.done:
             rospy.loginfo(
                 f"Reward[it {self.iteration_counter}]: {self.episode_transition['reward']}")
 
-        
         if self.mode == 'test':
             # Save results only on the end of the episode (avoid buffer overflow and data loss)
-            if req.done: 
-                self.replayBuffer.store(self.episode_transition['state'],
-                                        self.episode_transition['action'],
-                                        self.episode_transition['next_state'],
-                                        self.episode_transition['reward'],
-                                        self.episode_transition['done']
-                                        )
+            if req.done:
+                # store into the csv with the final state
+                self.data = pd.concat(
+                    [self.data, pd.DataFrame([self.episode_transition])], ignore_index=True)
         else:
             self.replayBuffer.store(self.episode_transition['state'],
-                                        self.episode_transition['action'],
-                                        self.episode_transition['next_state'],
-                                        self.episode_transition['reward'],
-                                        self.episode_transition['done']
-                                        )
-
+                                    self.episode_transition['action'],
+                                    self.episode_transition['next_state'],
+                                    self.episode_transition['reward'],
+                                    self.episode_transition['done']
+                                    )
+            
+        self.iteration_counter += 1
 
         if self.mode == 'train':
             if self.iteration_counter > self.random_steps:
@@ -291,18 +294,19 @@ class JumplegAgentInstantPos:
                 if self.iteration_counter % self.training_interval == 0:
                     for _ in range(self.training_interval):
                         self.policy.train(self.replayBuffer, self.batch_size)
-                        self.net_iteration_counter += 1
+
+                net_iteration_counter = self.iteration_counter - self.random_episode
 
                 if req.done:
-                    
+
                     # Save weight each 10000 net iteration
-                    if (self.net_iteration_counter) % 10000 == 0:
+                    if (net_iteration_counter) % 10000 == 0:
 
                         rospy.loginfo(
-                            f"Saving RL agent networks, epoch {self.net_iteration_counter}")
+                            f"Saving RL agent networks, epoch {net_iteration_counter}")
 
                         self.policy.save(os.path.join(
-                            self.main_folder, 'partial_weights'), str(self.net_iteration_counter))
+                            self.main_folder, 'partial_weights'), str(net_iteration_counter))
 
                     self.policy.save(self.data_path, 'latest')
 
@@ -319,8 +323,6 @@ class JumplegAgentInstantPos:
             if (self.iteration_counter + 1) % self.rb_dump_it == 0:
                 self.replayBuffer.dump(os.path.join(
                     self.main_folder), self.mode)
-
-        self.iteration_counter += 1
 
         # reset the episode transition
         self.episode_transition = {
