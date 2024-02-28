@@ -173,7 +173,7 @@ class JumplegAgentInstantPos:
                 self.targetCoM = [0, 0, -1]
                 # save test results in csv
                 self.data.to_csv(os.path.join(
-                    self.main_folder, 'test.csv'),index=None)
+                    self.main_folder, 'test.csv'), index=None)
 
         elif self.mode == 'train':
             if self.target_episode_counter > self.max_episode_target:
@@ -259,13 +259,16 @@ class JumplegAgentInstantPos:
                 print('########## Training PPO ################')
                 self.ppo_agent.update()
 
+            if req.done:
+
                 if (self.episode_counter) % 1000 == 0:
                     rospy.loginfo(
                         f"Saving RL agent networks, net_iteration {self.episode_counter}")
                     self.ppo_agent.save(os.path.join(
                         self.main_folder, 'partial_weights'), str(self.episode_counter))
 
-            self.ppo_agent.save(self.data_path, 'latest')
+                self.ppo_agent.save(self.data_path, 'latest')
+                
             if self.iteration_counter % self.action_std_decay_freq == 0:
                 self.ppo_agent.decay_action_std(
                     self.action_std_decay_rate, self.min_action_std)

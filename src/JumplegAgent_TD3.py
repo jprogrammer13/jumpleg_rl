@@ -61,7 +61,7 @@ class JumplegAgent:
 
         self.log_writer = SummaryWriter(
             os.path.join(self.main_folder, 'logs'))
-        
+
         self.data = pd.DataFrame(
             columns=['state', 'action', 'next_state', 'reward', 'done'])
 
@@ -165,7 +165,7 @@ class JumplegAgent:
                 self.targetCoM = [0, 0, -1]
                 # save test results in csv
                 self.data.to_csv(os.path.join(
-                    self.main_folder, 'test.csv'),index=None)
+                    self.main_folder, 'test.csv'), index=None)
 
         elif self.mode == 'train':
             if self.episode_counter > self.max_episode_target:
@@ -272,6 +272,9 @@ class JumplegAgent:
                                 self.episode_transition['reward'],
                                 self.episode_transition['done'])
 
+        self.episode_counter += 1
+        self.iteration_counter += 1
+
         if self.mode == 'train':
             if self.iteration_counter > self.random_episode:
 
@@ -279,20 +282,20 @@ class JumplegAgent:
 
                 net_iteration_counter = self.iteration_counter - self.random_episode
 
-                if (net_iteration_counter + 1) % 1000 == 0:
+                if (net_iteration_counter) % 1000 == 0:
 
                     rospy.loginfo(
-                        f"Saving RL agent networks, epoch {net_iteration_counter+1}")
+                        f"Saving RL agent networks, epoch {net_iteration_counter}")
 
                     self.policy.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(net_iteration_counter+1))
+                        self.main_folder, 'partial_weights'), str(net_iteration_counter))
 
                 self.policy.save(self.data_path, 'latest')
 
-        if (self.iteration_counter + 1) % self.rb_dump_it == 0:
+        if (self.iteration_counter) % self.rb_dump_it == 0:
             self.replayBuffer.dump(os.path.join(
                 self.main_folder), self.mode)
-            
+
         if self.mode == 'test':
             self.data = pd.concat(
                 [self.data, pd.DataFrame([self.episode_transition])], ignore_index=True)
@@ -308,9 +311,6 @@ class JumplegAgent:
 
         resp = set_rewardResponse()
         resp.ack = np.array(req.reward)
-
-        self.episode_counter += 1
-        self.iteration_counter += 1
 
         return resp
 

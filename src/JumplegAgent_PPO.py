@@ -252,15 +252,15 @@ class JumplegAgent:
             if self.iteration_counter % self.update_timestep == 0:
                 self.ppo_agent.update()
 
-                if (self.episode_counter) % 1000 == 0:
+            if (self.episode_counter) % 1000 == 0:
 
-                    rospy.loginfo(
-                        f"Saving RL agent networks, epoch {self.episode_counter}")
+                rospy.loginfo(
+                    f"Saving RL agent networks, epoch {self.episode_counter}")
 
-                    self.ppo_agent.save(os.path.join(
-                        self.main_folder, 'partial_weights'), str(self.episode_counter))
+                self.ppo_agent.save(os.path.join(
+                    self.main_folder, 'partial_weights'), str(self.episode_counter))
 
-                self.ppo_agent.save(self.data_path, 'latest')
+            self.ppo_agent.save(self.data_path, 'latest')
 
             if self.iteration_counter % self.action_std_decay_freq == 0:
                 self.ppo_agent.decay_action_std(
