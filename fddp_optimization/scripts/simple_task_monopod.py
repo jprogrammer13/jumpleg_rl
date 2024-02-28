@@ -154,11 +154,11 @@ if __name__ == '__main__':
         df = pd.read_csv('test_optim.csv',header=0)
     except:
         print(colored('CREATING NEW CSV', 'blue'))
-        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'landing_position','elapsed_time'])
+        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'foot_landing_position','elapsed_time'])
 
     # DEBUG
     if DEBUG: # overwrite
-        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'landing_position','elapsed_time'])
+        df = pd.DataFrame(columns=['test_nr', 'n_iter', 'foot_target','rel_landing_error', 'foot_landing_position','elapsed_time'])
         test_points = np.array([[0.2, 0.0, 0.25]])
 
 
