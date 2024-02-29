@@ -295,7 +295,7 @@ class JumplegAgentInstantPos:
                     for _ in range(self.training_interval):
                         self.policy.train(self.replayBuffer, self.batch_size)
 
-                net_iteration_counter = self.iteration_counter - self.random_episode
+                net_iteration_counter = self.iteration_counter - self.random_steps
 
                 if req.done:
 
