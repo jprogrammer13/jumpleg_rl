@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+
+import joblib
+from jumpleg_rl.srv import *
+import rospy
+import numpy as np
+import os
+import argparse
+import pandas as pd
+
+from PPO import PPO
+from utils import *
+from std_msgs.msg import Float32
+from torch.utils.tensorboard import SummaryWriter
+
+
+class SwingupAgent:
+    def __init__(self, _mode, _data_path, _model_name, _restore_train):
+
+        self.node_name = "SwingupAgent"
+
+        self.mode = _mode
+        self.data_path = _data_path
+        self.model_name = _model_name
+        # convert string back to bool
+        self.restore_train = eval(_restore_train)
+
+        # Service proxy
+        self.get_action_srv = rospy.Service(os.path.join(self.node_name, "get_action"), get_action,
+                                            self.get_action_handler)
+        self.get_target_srv = rospy.Service(os.path.join(self.node_name, "get_target"), get_target,
+                                            self.get_target_handler)
+        self.set_reward_srv = rospy.Service(os.path.join(self.node_name, "set_reward"), set_reward_original,
+                                            self.set_reward_handler)
+
+        if not os.path.exists(self.data_path):
+            os.mkdir(self.data_path)
+
+        self.main_folder = os.path.join(self.data_path, self.mode)
+
+        if not os.path.exists(self.main_folder):
+            os.mkdir(self.main_folder)
+
+        if self.mode == 'test':
+            self.main_folder = os.path.join(
+                self.data_path, self.mode, f'model_{self.model_name}')
+
+            if not os.path.exists(self.main_folder):
+                os.mkdir(self.main_folder)
+
+        if not os.path.exists(os.path.join(self.main_folder, 'logs')):
+            os.mkdir(os.path.join(self.main_folder, 'logs'))
+
+        if self.mode == 'train':
+            if not os.path.exists(os.path.join(self.main_folder, 'partial_weights')):
+                os.mkdir(os.path.join(self.main_folder, 'partial_weights'))
+
+        self.log_writer = SummaryWriter(
+            os.path.join(self.main_folder, 'logs'))
+
+        self.data = pd.DataFrame(
+            columns=['state', 'action',  'reward', 'done'])
+
+        self.state_dim = 4
+        self.action_dim = 1
+
+        #action limits
+        self.min_force = -10
+        self.max_force = 10
+
+        # Curriculum learning (increese train domain)
+        self.curr_learning = 0.5
+
+        # RL
+        avg_ep_len = 1000
+
+        self.layer_dim = 64
+
+        self.action_std = 0.6 if self.mode == 'train' else 0.1
+
+        self.action_std_decay_rate = 0.05
+        self.min_action_std = 0.1
+        self.action_std_decay_freq = int(2.5e5)
+
+        self.update_timestep = avg_ep_len * 5  # update ppo_agent every n timesteps
+        K_epochs = 100  # update ppo_agent for K epochs
+        eps_clip = 0.2  # clip parameter for PPO
+        gamma = 0.99  # discount factor
+
+        lr_actor = 3e-4  # learning rate for actor network
+        lr_critic = 1e-3  # learning rate for critic network
+
+        self.ppo_agent = PPO(self.state_dim, self.action_dim, lr_actor,
+                             lr_critic, gamma, K_epochs, eps_clip, self.action_std)
+
+        self.max_episode_target = 10
+        self.target_episode_counter = 0
+        self.episode_counter = 0
+        self.iteration_counter = 0
+        self.test_points = []
+
+
+        if self.mode == 'test':
+            self.test_points = np.loadtxt(
+                os.environ["LOCOSIM_DIR"] + "/robot_control/jumpleg_rl/src/"+'test_points.txt')
+
+        if self.mode != 'train' or self.restore_train:
+            self.ppo_agent.load(self.data_path, self.model_name)
+            if self.restore_train:
+                pw = os.listdir(os.path.join(
+                    self.data_path, 'train', 'partial_weights'))
+                # restore the episode number from the latest partial weight
+                self.episode_counter = np.array(
+                    [int(i.split('_')[-1].split('.pt')[0]) for i in pw]).max()
+
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done": 1
+        }
+
+        self.target_up = self.generate_target()
+
+        # Start ROS node
+        rospy.init_node(self.node_name)
+        rospy.loginfo(f"SwingupAgent is listening: {self.mode}")
+        rospy.loginfo(
+            f'restore_train: {self.restore_train}, net_iteration: {self.episode_counter}')
+
+        rospy.spin()
+
+    def generate_target(self):
+        return [0,0,0,0]
+
+    def get_target_handler(self, req):
+        resp = get_targetResponse()
+
+        if self.mode == 'inference':
+            self.target_up = self.generate_target()
+
+
+        elif self.mode == 'train':
+            if self.target_episode_counter > self.max_episode_target:
+                self.target_episode_counter = 0
+                self.targetCoM = self.generate_target()
+
+        resp.target_CoM = self.target_up
+
+        return resp
+
+    def get_action_handler(self, req):
+        #rospy.loginfo(f'Get action service call')
+        state = np.array(req.state)
+        action = self.ppo_agent.select_action(state)
+        action = action*self.max_force
+        resp = get_actionResponse()
+        resp.action = action
+        return resp
+
+    def set_reward_handler(self, req):
+        next_state = np.array(req.next_state)
+
+        reward = np.array(req.reward)
+        done = req.done
+
+        self.episode_transition['state'] = np.array(req.state)
+        self.episode_transition['action'] = np.array(req.action)
+        self.episode_transition['reward'] = np.array(req.reward)
+        self.episode_transition['next_state'] = np.array(req.next_state)
+        self.episode_transition['done'] = np.array(req.done)
+
+        self.ppo_agent.buffer.rewards.append(reward)
+        self.ppo_agent.buffer.is_terminals.append(done)
+
+
+        self.log_writer.add_scalar(
+            'Reward', req.reward, self.iteration_counter)
+        rospy.loginfo(
+            f"Reward[iteration_counter {self.iteration_counter}]: {reward}")
+
+        if self.mode == 'test':
+            # Save results only on the end of the episode (avoid buffer overflow and data loss)
+            if req.done:
+                # store into the csv with the final state
+                self.data = pd.concat(
+                    [self.data, pd.DataFrame([self.episode_transition])], ignore_index=True)
+
+        self.iteration_counter += 1
+
+        # reset the episode transition
+        self.episode_transition = {
+            "state": None,
+            "action": None,
+            "next_state": None,
+            "reward": None,
+            "done": None
+        }
+
+        if self.mode == 'train':
+            if self.iteration_counter % self.update_timestep == 0:
+                print('########## Training PPO ################')
+                self.ppo_agent.update()
+
+            if req.done:
+
+                if (self.episode_counter) % 1000 == 0:
+                    rospy.loginfo(
+                        f"Saving RL agent networks, net_iteration {self.episode_counter}")
+                    self.ppo_agent.save(os.path.join(
+                        self.main_folder, 'partial_weights'), str(self.episode_counter))
+
+                self.ppo_agent.save(self.data_path, 'latest')
+
+            if self.iteration_counter % self.action_std_decay_freq == 0:
+                self.ppo_agent.decay_action_std(
+                    self.action_std_decay_rate, self.min_action_std)
+
+        resp = set_reward_originalResponse()
+        resp.ack = np.array(req.reward)
+
+        if req.done:
+            # episode is done only when done is 1
+            self.target_episode_counter += 1
+            self.episode_counter += 1
+            print(self.iteration_counter, self.episode_counter)
+
+        return resp
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='SwingupAgent arguments')
+    parser.add_argument('--mode', type=str,
+                        default="inference", nargs="?", help='Agent mode')
+    parser.add_argument('--data_path', type=str,
+                        default=None, nargs="?", help='Path of RL data')
+    parser.add_argument('--model_name', type=str,
+                        default='latest', nargs="?", help='Iteration of the model')
+    parser.add_argument('--restore_train', default=False,
+                        nargs="?", help='Restore training flag')
+
+    args = parser.parse_args(rospy.myargv()[1:])
+
+    SwingupAgent = SwingupAgent(
+        args.mode, args.data_path, args.model_name, args.restore_train)

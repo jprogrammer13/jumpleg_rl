@@ -163,6 +163,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
+  src/SwingupAgent_PPO.py
   src/JumplegAgent_PPO.py
   src/JumplegAgentInstantPos_PPO.py
   src/JumplegAgent_TD3.py
